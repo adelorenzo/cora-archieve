@@ -2,27 +2,41 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
+import MarkdownRenderer from './components/MarkdownRenderer';
+import ErrorBoundary from './components/ErrorBoundary';
 import llmService from './lib/llm-service';
 import { cn } from './lib/utils';
 
-const tools = [{
-  type: "function",
-  function: {
-    name: "getTime",
-    description: "Get the current local time as an ISO string.",
-    parameters: { type: "object", properties: {} },
-  },
-}];
-
-function toolRouter(name) {
-  if (name === "getTime") {
-    return { now: new Date().toISOString() };
-  }
-  return { error: "Unknown tool" };
-}
-
 function App() {
-  const [messages, setMessages] = useState([]);
+  // Test message with markdown to verify rendering
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: `# Welcome to WebLLM Chat!
+
+Here's what I can help you with:
+
+## Features
+- **Bold text** and *italic text*
+- Lists and bullet points
+- Code blocks with syntax highlighting
+
+### Code Example
+\`\`\`javascript
+const greeting = "Hello, World!";
+console.log(greeting);
+\`\`\`
+
+### Lists
+1. First item
+2. Second item
+3. Third item
+
+> This is a blockquote with some important information.
+
+Feel free to ask me anything! I run entirely in your browser using WebGPU or WASM.`
+    }
+  ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -130,18 +144,6 @@ function App() {
             return newMessages;
           });
         }
-        
-        if (delta.tool_calls) {
-          for (const toolCall of delta.tool_calls) {
-            const result = toolRouter(toolCall.function.name);
-            const toolMessage = `Tool: ${toolCall.function.name}\nResult: ${JSON.stringify(result)}`;
-            setMessages(prev => {
-              const newMessages = [...prev];
-              newMessages[newMessages.length - 1].content += `\n\n${toolMessage}`;
-              return newMessages;
-            });
-          }
-        }
       }
     } catch (error) {
       console.error('Generation error:', error);
@@ -156,47 +158,6 @@ function App() {
     }
   };
 
-  const handleToolDemo = async () => {
-    const demoMessage = { role: 'user', content: "What's the current time?" };
-    setMessages(prev => [...prev, demoMessage]);
-    setIsLoading(true);
-    setIsStreaming(true);
-
-    const assistantMessage = { role: 'assistant', content: '' };
-    setMessages(prev => [...prev, assistantMessage]);
-
-    try {
-      const allMessages = [...systemMessages, ...messages, demoMessage];
-      const stream = llmService.generateStream(allMessages, { temperature, tools });
-
-      for await (const delta of stream) {
-        if (delta.content) {
-          setMessages(prev => {
-            const newMessages = [...prev];
-            newMessages[newMessages.length - 1].content += delta.content;
-            return newMessages;
-          });
-        }
-        
-        if (delta.tool_calls) {
-          for (const toolCall of delta.tool_calls) {
-            const result = toolRouter(toolCall.function.name);
-            const response = `The current time is: ${result.now}`;
-            setMessages(prev => {
-              const newMessages = [...prev];
-              newMessages[newMessages.length - 1].content += response;
-              return newMessages;
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Tool demo error:', error);
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
-    }
-  };
 
   const handleModelChange = async (model) => {
     setSelectedModel(model);
@@ -309,13 +270,23 @@ function App() {
                       msg.role === "user" ? "user-message" : "assistant-message"
                     )}
                   >
-                    {msg.content || (
-                      <div className="typing-indicator">
-                        <span style={{ animationDelay: "0ms" }}></span>
-                        <span style={{ animationDelay: "150ms" }}></span>
-                        <span style={{ animationDelay: "300ms" }}></span>
-                      </div>
-                    )}
+                    <ErrorBoundary>
+                      {msg.content ? (
+                        msg.role === "assistant" ? (
+                          <MarkdownRenderer content={msg.content} />
+                        ) : (
+                          <div className="whitespace-pre-wrap break-words">
+                            {msg.content}
+                          </div>
+                        )
+                      ) : (
+                        <div className="typing-indicator">
+                          <span style={{ animationDelay: "0ms" }}></span>
+                          <span style={{ animationDelay: "150ms" }}></span>
+                          <span style={{ animationDelay: "300ms" }}></span>
+                        </div>
+                      )}
+                    </ErrorBoundary>
                   </div>
                 </div>
               ))
@@ -344,20 +315,6 @@ function App() {
                 ) : (
                   <Send className="h-5 w-5" />
                 )}
-              </Button>
-            </div>
-            
-            {/* Tool Demo Button */}
-            <div className="mt-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleToolDemo}
-                disabled={isLoading || isInitializing}
-                className="text-xs border-purple-200 text-purple-600 hover:bg-purple-50"
-              >
-                Demo: getTime() Function
               </Button>
             </div>
           </form>
