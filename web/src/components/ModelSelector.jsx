@@ -160,7 +160,7 @@ const ModelSelector = ({ currentModel, onModelSelect, runtime }) => {
                     <div className="mt-1">{model.icon}</div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{model.name}</span>
+                        <span className="font-medium text-foreground">{model.name}</span>
                         <span className="text-xs text-muted-foreground">{model.size}</span>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">

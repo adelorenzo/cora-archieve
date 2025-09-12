@@ -404,7 +404,7 @@ function App() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask anything..."
                 disabled={isLoading || isInitializing}
-                className="flex-1 bg-secondary border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                className="flex-1 bg-secondary border border-border rounded-xl px-4 py-3 placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               />
               <Button
                 type="submit"

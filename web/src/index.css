@@ -13,6 +13,24 @@
     height: 100%;
     overflow: hidden;
   }
+  
+  /* Fix input text color */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  textarea {
+    color: hsl(var(--foreground));
+  }
+  
+  /* Ensure proper contrast in all themes */
+  .light input[type="text"] {
+    color: #1a1a1a;
+  }
+  
+  .dark input[type="text"] {
+    color: #fafafa;
+  }
 }
 
 @layer components {

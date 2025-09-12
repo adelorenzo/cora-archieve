@@ -1,11 +1,11 @@
 // sw.js — cache static assets + attempt to cache model shards for faster reloads
-const CACHE = "webllm-react-cache-v1";
+const CACHE = "webllm-react-cache-v2";
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
-  "./public/icon-192.png",
-  "./public/icon-512.png",
+  "./icon-192.png",
+  "./icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -42,6 +42,12 @@ self.addEventListener("fetch", (event) => {
 
   // Default: network-first with fallback to cache
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request).catch(() => {
+      // In development, don't cache Vite assets
+      if (url.pathname.includes('@vite') || url.pathname.includes('?t=')) {
+        return new Response('', { status: 404 });
+      }
+      return caches.match(event.request) || new Response('', { status: 404 });
+    })
   );
 });
