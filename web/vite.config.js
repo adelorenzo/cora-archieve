@@ -14,4 +14,18 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    // Pre-bundle PouchDB modules to avoid CommonJS issues
+    include: [
+      'pouchdb-core',
+      'pouchdb-adapter-idb', 
+      'pouchdb-mapreduce',
+      'pouchdb-replication',
+      'pouchdb-find'
+    ]
+  },
+  define: {
+    // Define global for PouchDB compatibility
+    global: 'globalThis'
+  }
 })

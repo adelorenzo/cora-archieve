@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug</title>
+</head>
+<body>
+  <h1>Debug Page</h1>
+  <div id="error"></div>
+  <script type="module">
+    try {
+      const response = await fetch('http://localhost:8000/src/main.jsx');
+      const text = await response.text();
+      console.log('Main.jsx loads');
+      
+      // Try to import the app
+      import('http://localhost:8000/src/main.jsx').then(() => {
+        document.getElementById('error').innerHTML = 'App loaded successfully';
+      }).catch(err => {
+        document.getElementById('error').innerHTML = 'Error: ' + err.message;
+        console.error(err);
+      });
+    } catch(e) {
+      document.getElementById('error').innerHTML = 'Error: ' + e.message;
+      console.error(e);
+    }
+  </script>
+</body>
+</html>

@@ -3,8 +3,204 @@
  * Provides offline-first data persistence with PouchDB
  */
 
-import PouchDB from 'pouchdb';
-import PouchFind from 'pouchdb-find';
+// Try importing PouchDB modules - fallback to localStorage if it fails
+let PouchDB = null;
+
+// Function to initialize PouchDB dynamically
+async function initPouchDB() {
+  if (PouchDB) return PouchDB;
+  
+  try {
+    // Import modules with proper default handling
+    const { default: PouchDBCore } = await import('pouchdb-core');
+    const { default: IdbAdapter } = await import('pouchdb-adapter-idb');
+    const { default: MapReducePlugin } = await import('pouchdb-mapreduce');
+    const { default: ReplicationPlugin } = await import('pouchdb-replication');
+    const { default: FindPlugin } = await import('pouchdb-find');
+    
+    // Configure PouchDB with required plugins
+    PouchDB = PouchDBCore
+      .plugin(IdbAdapter)
+      .plugin(MapReducePlugin)
+      .plugin(ReplicationPlugin)
+      .plugin(FindPlugin);
+      
+    console.log('PouchDB configured successfully');
+    return PouchDB;
+  } catch (error) {
+    console.warn('PouchDB import failed, will use localStorage fallback:', error);
+    return null;
+  }
+}
+
+// Simple fallback class for localStorage if PouchDB fails
+class StorageFallback {
+  constructor(name) {
+    this.name = name;
+    this.storage = localStorage;
+    this.prefix = `cora_${name}_`;
+  }
+
+  async allDocs(options = {}) {
+    const docs = [];
+    for (let i = 0; i < this.storage.length; i++) {
+      const key = this.storage.key(i);
+      if (key.startsWith(this.prefix)) {
+        try {
+          const doc = JSON.parse(this.storage.getItem(key));
+          const id = key.replace(this.prefix, '');
+          docs.push(options.include_docs ? { id, doc } : { id });
+        } catch (e) {
+          console.warn(`Failed to parse document ${key}:`, e);
+        }
+      }
+    }
+    return { rows: docs };
+  }
+
+  async get(id) {
+    const data = this.storage.getItem(this.prefix + id);
+    if (!data) {
+      const error = new Error('missing');
+      error.status = 404;
+      error.name = 'not_found';
+      throw error;
+    }
+    try {
+      return JSON.parse(data);
+    } catch (parseError) {
+      console.warn(`Failed to parse document ${id}, removing corrupted data`);
+      this.storage.removeItem(this.prefix + id);
+      const error = new Error('missing');
+      error.status = 404;
+      error.name = 'not_found';
+      throw error;
+    }
+  }
+
+  async put(doc) {
+    const id = doc._id || doc.id || Date.now().toString();
+    const existingData = this.storage.getItem(this.prefix + id);
+    let rev = '1-' + Date.now().toString();
+    
+    if (existingData) {
+      const existing = JSON.parse(existingData);
+      if (existing._rev && !doc._rev) {
+        const error = new Error('Document update conflict');
+        error.status = 409;
+        throw error;
+      }
+      const revNum = parseInt(existing._rev?.split('-')[0] || '0') + 1;
+      rev = `${revNum}-${Date.now()}`;
+    }
+    
+    const finalDoc = { ...doc, _id: id, _rev: rev };
+    this.storage.setItem(this.prefix + id, JSON.stringify(finalDoc));
+    return { ok: true, id, rev };
+  }
+
+  async remove(doc) {
+    const id = typeof doc === 'string' ? doc : doc._id;
+    const key = this.prefix + id;
+    if (!this.storage.getItem(key)) {
+      const error = new Error('missing');
+      error.status = 404;
+      throw error;
+    }
+    this.storage.removeItem(key);
+    return { ok: true };
+  }
+
+  async find(query) {
+    const allDocs = await this.allDocs({ include_docs: true });
+    let docs = allDocs.rows.map(row => row.doc);
+    
+    // Apply selector filtering
+    if (query.selector) {
+      docs = docs.filter(doc => this._matchesSelector(doc, query.selector));
+    }
+    
+    // Apply sorting
+    if (query.sort) {
+      docs.sort((a, b) => this._compareSort(a, b, query.sort));
+    }
+    
+    // Apply pagination
+    if (query.skip) {
+      docs = docs.slice(query.skip);
+    }
+    if (query.limit) {
+      docs = docs.slice(0, query.limit);
+    }
+    
+    return { docs };
+  }
+
+  _matchesSelector(doc, selector) {
+    for (const [field, condition] of Object.entries(selector)) {
+      const value = this._getNestedValue(doc, field);
+      if (typeof condition === 'object' && condition !== null) {
+        // Handle operators (not implemented for simplicity)
+        continue;
+      } else {
+        if (value !== condition) return false;
+      }
+    }
+    return true;
+  }
+
+  _getNestedValue(obj, path) {
+    return path.split('.').reduce((current, key) => current?.[key], obj);
+  }
+
+  _compareSort(a, b, sortArray) {
+    for (const sortField of sortArray) {
+      const field = typeof sortField === 'string' ? sortField : Object.keys(sortField)[0];
+      const direction = typeof sortField === 'string' ? 'asc' : sortField[field];
+      
+      const aVal = this._getNestedValue(a, field);
+      const bVal = this._getNestedValue(b, field);
+      
+      if (aVal < bVal) return direction === 'desc' ? 1 : -1;
+      if (aVal > bVal) return direction === 'desc' ? -1 : 1;
+    }
+    return 0;
+  }
+
+  async createIndex() {
+    return { result: 'created' };
+  }
+
+  async info() {
+    const allDocs = await this.allDocs();
+    let totalSize = 0;
+    
+    // Calculate approximate storage size for this database
+    for (let i = 0; i < this.storage.length; i++) {
+      const key = this.storage.key(i);
+      if (key.startsWith(this.prefix)) {
+        const value = this.storage.getItem(key);
+        totalSize += (key.length + (value ? value.length : 0)) * 2; // Rough UTF-16 estimate
+      }
+    }
+    
+    return {
+      doc_count: allDocs.rows.length,
+      data_size: totalSize,
+      db_name: this.name,
+      adapter: 'localstorage-fallback'
+    };
+  }
+
+  async compact() {
+    return { ok: true };
+  }
+
+  async close() {
+    return { ok: true };
+  }
+}
+
 import { 
   COLLECTIONS, 
   VALIDATION_RULES, 
@@ -16,9 +212,6 @@ import {
   CONVERSATION_SCHEMA
 } from './schema.js';
 
-// Enable PouchDB plugins
-PouchDB.plugin(PouchFind);
-
 /**
  * Database service class for managing all data operations
  */
@@ -27,6 +220,7 @@ class DatabaseService {
     this.dbs = new Map();
     this.initialized = false;
     this.storageQuota = null;
+    this.usingFallback = false;
   }
 
   /**
@@ -42,17 +236,62 @@ class DatabaseService {
         this.storageQuota = await navigator.storage.estimate();
       }
 
-      // Initialize collections
-      for (const [key, name] of Object.entries(COLLECTIONS)) {
-        const db = new PouchDB(`cora_${name}`, {
-          adapter: 'idb',
-          auto_compaction: true
-        });
+      // Try to initialize PouchDB first
+      await this._initializePouchDB();
+      
+      this.initialized = true;
+      console.log(`Database initialized successfully${this.usingFallback ? ' (using localStorage fallback)' : ' (using IndexedDB)'}`);
+    } catch (error) {
+      console.error('Database initialization failed:', error);
+      throw new Error(`Database initialization failed: ${error.message}`);
+    }
+  }
 
-        this.dbs.set(name, db);
-        
-        // Create indexes for collection
-        if (INDEXES[key]) {
+  /**
+   * Initialize PouchDB with fallback to localStorage
+   * @private
+   */
+  async _initializePouchDB() {
+    // Try to initialize PouchDB first
+    const PouchDBConstructor = await initPouchDB();
+    
+    // Initialize collections
+    for (const [key, name] of Object.entries(COLLECTIONS)) {
+      let db;
+      
+      if (PouchDBConstructor) {
+        try {
+          // Try PouchDB with IndexedDB adapter first
+          db = new PouchDBConstructor(`cora_${name}`, {
+            adapter: 'idb',
+            auto_compaction: true,
+            revs_limit: 1 // Reduce storage overhead
+          });
+
+          // Test the database by performing a simple operation
+          await db.info();
+          
+          console.log(`Initialized ${name} collection with IndexedDB`);
+          
+        } catch (pouchError) {
+          console.warn(`PouchDB failed for ${name}, falling back to localStorage:`, pouchError);
+          
+          // Fall back to localStorage implementation
+          db = new StorageFallback(name);
+          this.usingFallback = true;
+        }
+      } else {
+        // PouchDB not available, use fallback
+        console.log(`Using localStorage fallback for ${name} collection`);
+        db = new StorageFallback(name);
+        this.usingFallback = true;
+      }
+
+      this.dbs.set(name, db);
+      
+      // Create indexes for collection (only if using real PouchDB)
+      if (!this.usingFallback && INDEXES[key]) {
+        try {
           for (const index of INDEXES[key]) {
             await db.createIndex({
               index: {
@@ -61,18 +300,14 @@ class DatabaseService {
               }
             });
           }
+        } catch (indexError) {
+          console.warn(`Failed to create index for ${name}:`, indexError);
         }
       }
-
-      // Initialize default settings if not exists
-      await this.initializeSettings();
-      
-      this.initialized = true;
-      console.log('Database initialized successfully');
-    } catch (error) {
-      console.error('Database initialization failed:', error);
-      throw new Error(`Database initialization failed: ${error.message}`);
     }
+
+    // Initialize default settings if not exists
+    await this.initializeSettings();
   }
 
   /**
@@ -84,7 +319,7 @@ class DatabaseService {
     try {
       await settingsDb.get(SETTINGS_SCHEMA._id);
     } catch (error) {
-      if (error.status === 404) {
+      if (error.status === 404 || error.message === 'missing') {
         await settingsDb.put({ ...SETTINGS_SCHEMA });
       }
     }
@@ -148,7 +383,7 @@ class DatabaseService {
     try {
       return await db.get(id);
     } catch (error) {
-      if (error.status === 404) {
+      if (error.status === 404 || error.message === 'missing') {
         throw new Error(`Document not found: ${id}`);
       }
       throw error;
@@ -176,7 +411,7 @@ class DatabaseService {
       const result = await db.put(updated);
       return { ...updated, _rev: result.rev };
     } catch (error) {
-      if (error.status === 404) {
+      if (error.status === 404 || error.message === 'missing') {
         throw new Error(`Document not found: ${id}`);
       }
       throw error;
@@ -203,7 +438,7 @@ class DatabaseService {
         await embDb.remove(embedding);
       }
     } catch (error) {
-      if (error.status === 404) {
+      if (error.status === 404 || error.message === 'missing') {
         throw new Error(`Document not found: ${id}`);
       }
       throw error;

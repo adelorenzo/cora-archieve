@@ -1,69 +1,72 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Cpu, Zap, Brain, Sparkles, ChevronDown } from 'lucide-react';
+import llmService from '../lib/llm-service.js';
+import { CURATED_MODELS } from '../config/models.js';
+import DropdownPortal from './DropdownPortal';
 
-const curatedModels = [
-  {
-    id: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
-    name: 'SmolLM2 360M',
-    description: 'Fast & efficient, great for quick responses',
-    icon: <Zap className="w-4 h-4" />,
-    size: '~200MB',
-    speed: 'Very Fast',
-    quality: 'Good'
-  },
-  {
-    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 1B',
-    description: 'Balanced performance and quality',
-    icon: <Brain className="w-4 h-4" />,
-    size: '~650MB',
-    speed: 'Fast',
-    quality: 'Very Good'
-  },
-  {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 3B',
-    description: 'High quality responses, more capable',
-    icon: <Sparkles className="w-4 h-4" />,
-    size: '~1.7GB',
-    speed: 'Moderate',
-    quality: 'Excellent'
-  },
-  {
-    id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
-    name: 'Phi 3.5 Mini',
-    description: 'Microsoft\'s efficient model, good reasoning',
-    icon: <Cpu className="w-4 h-4" />,
-    size: '~2GB',
-    speed: 'Moderate',
-    quality: 'Very Good'
-  },
-  {
-    id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 1.5B',
-    description: 'Multilingual support, well-rounded',
-    icon: <Brain className="w-4 h-4" />,
-    size: '~900MB',
-    speed: 'Fast',
-    quality: 'Very Good'
+// Icon mapping for different model types
+const getModelIcon = (modelId) => {
+  if (modelId.includes('SmolLM') || modelId.includes('TinyLlama')) {
+    return <Zap className="w-4 h-4" />;
   }
-];
+  if (modelId.includes('Phi')) {
+    return <Cpu className="w-4 h-4" />;
+  }
+  if (modelId.includes('gemma')) {
+    return <Sparkles className="w-4 h-4" />;
+  }
+  return <Brain className="w-4 h-4" />;
+};
+
+const getCuratedModelsForUI = () => {
+  return CURATED_MODELS.map(model => ({
+    id: model.model_id,
+    name: model.name,
+    description: model.description,
+    icon: getModelIcon(model.model_id),
+    size: model.size,
+    speed: model.speed,
+    quality: model.quality,
+    useCase: model.useCase
+  }));
+};
 
 const ModelSelector = ({ currentModel, onModelSelect, runtime }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    // Calculate dropdown position
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX
+      });
+    }
+
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          buttonRef.current && !buttonRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    // Delay adding the listener to avoid catching the opening click
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleModelSelect = async (model) => {
     if (model.id === currentModel) {
@@ -81,6 +84,8 @@ const ModelSelector = ({ currentModel, onModelSelect, runtime }) => {
     }
   };
 
+  const curatedModels = getCuratedModelsForUI();
+  
   const selectedModel = curatedModels.find(m => m.id === currentModel) || {
     name: currentModel || 'Select Model',
     description: 'Choose a model to start chatting',
@@ -101,12 +106,16 @@ const ModelSelector = ({ currentModel, onModelSelect, runtime }) => {
     : curatedModels;
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={isLoading || runtime === 'wasm'}
+        ref={buttonRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        disabled={isLoading}
         className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors ${
-          (isLoading || runtime === 'wasm') ? 'opacity-50 cursor-not-allowed' : ''
+          isLoading ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >
         {isLoading ? (
@@ -123,9 +132,17 @@ const ModelSelector = ({ currentModel, onModelSelect, runtime }) => {
         {runtime !== 'wasm' && <ChevronDown className="w-4 h-4 text-muted-foreground" />}
       </button>
 
-      {isOpen && runtime !== 'wasm' && (
-        <div className="absolute left-0 mt-2 w-96 rounded-lg bg-popover border border-border shadow-lg z-50">
-          <div className="p-3">
+      {isOpen && (
+        <DropdownPortal>
+          <div 
+            ref={dropdownRef}
+            className="fixed w-96 rounded-lg bg-popover border border-border shadow-lg z-[9999]"
+            style={{ 
+              top: `${dropdownPosition.top + 8}px`, 
+              left: `${dropdownPosition.left}px` 
+            }}
+          >
+            <div className="p-3">
             <div className="text-sm font-medium text-muted-foreground mb-3">
               Select AI Model
             </div>
@@ -157,6 +174,11 @@ const ModelSelector = ({ currentModel, onModelSelect, runtime }) => {
                           Quality: <span className="text-foreground">{model.quality}</span>
                         </span>
                       </div>
+                      {model.useCase && (
+                        <div className="text-xs text-primary/70 mt-1 font-medium">
+                          Best for: {model.useCase}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </button>
@@ -173,7 +195,8 @@ const ModelSelector = ({ currentModel, onModelSelect, runtime }) => {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </DropdownPortal>
       )}
     </div>
   );

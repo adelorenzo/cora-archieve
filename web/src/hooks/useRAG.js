@@ -21,27 +21,45 @@ export function useRAG() {
    * Initialize RAG service
    */
   const initializeRAG = useCallback(async (progressCallback = null) => {
-    if (ragState.initialized || ragState.initializing) {
-      return;
-    }
-
-    setRAGState(prev => ({
-      ...prev,
-      initializing: true,
-      error: null
-    }));
+    setRAGState(prev => {
+      if (prev.initialized || prev.initializing) {
+        return prev;
+      }
+      return {
+        ...prev,
+        initializing: true,
+        error: null
+      };
+    });
 
     try {
       await ragService.initialize(progressCallback);
       
-      // Load initial document stats
-      await updateStats();
-      
-      setRAGState(prev => ({
-        ...prev,
-        initialized: true,
-        initializing: false
-      }));
+      // Load initial document stats inline to avoid dependency issues
+      try {
+        const documents = await dbService.searchDocuments();
+        const indexedCount = documents.filter(doc => doc.indexed).length;
+        const processingCount = documents.filter(doc => doc.status === 'processing').length;
+        const stats = await ragService.getStats();
+        
+        setRAGState(prev => ({
+          ...prev,
+          initialized: true,
+          initializing: false,
+          documentCount: documents.length,
+          indexedCount,
+          processingCount,
+          stats,
+          error: null
+        }));
+      } catch (statsError) {
+        // Still mark as initialized even if stats fail
+        setRAGState(prev => ({
+          ...prev,
+          initialized: true,
+          initializing: false
+        }));
+      }
     } catch (error) {
       console.error('RAG initialization failed:', error);
       setRAGState(prev => ({
@@ -51,7 +69,7 @@ export function useRAG() {
       }));
       throw error;
     }
-  }, [ragState.initialized, ragState.initializing]);
+  }, []); // No dependencies to prevent re-creation
 
   /**
    * Update RAG statistics

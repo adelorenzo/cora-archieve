@@ -54,33 +54,40 @@ function App() {
       console.warn('RAG initialization failed on startup:', error);
       // Continue without RAG - it can be initialized later when needed
     });
-  }, [initializeRAG]);
+  }, []); // Remove initializeRAG from dependencies to prevent infinite loop
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const loadAvailableModels = async () => {
-    setInitStatus('Detecting runtime...');
-    const detectedRuntime = await llmService.detectRuntime();
-    setRuntime(detectedRuntime);
-    
-    if (detectedRuntime === 'webgpu') {
-      const availableModels = await llmService.getAvailableModels();
-      setModels(availableModels);
-      if (availableModels.length > 0) {
-        // Find a small model to use as default
-        const defaultModel = availableModels.find(m => 
-          m.model_id.includes('SmolLM2-135M') || 
-          m.model_id.includes('Qwen2.5-0.5B')
-        ) || availableModels[0];
-        setSelectedModel(defaultModel.model_id);
+    try {
+      setInitStatus('Detecting runtime...');
+      const detectedRuntime = await llmService.detectRuntime();
+      setRuntime(detectedRuntime);
+      
+      if (detectedRuntime === 'webgpu') {
+        const availableModels = await llmService.getAvailableModels();
+        setModels(availableModels);
+        if (availableModels.length > 0) {
+          // Find a small model to use as default
+          const defaultModel = availableModels.find(m => 
+            m.model_id.includes('SmolLM2-135M') || 
+            m.model_id.includes('Qwen2.5-0.5B')
+          ) || availableModels[0];
+          setSelectedModel(defaultModel.model_id);
+        }
+        setInitStatus('Select a model to start');
+      } else {
+        setInitStatus('WASM mode - Click to initialize');
       }
-      setInitStatus('Select a model to start');
-    } else {
-      setInitStatus('WASM mode - Click to initialize');
+    } catch (error) {
+      console.error('Failed to detect runtime:', error);
+      setRuntime('wasm'); // Fallback to WASM on error
+      setInitStatus('WASM mode (fallback) - Click to initialize');
+    } finally {
+      setIsInitializing(false);
     }
-    setIsInitializing(false);
   };
 
   const initializeLLM = async (modelToLoad = selectedModel) => {
@@ -276,7 +283,7 @@ function App() {
         </header>
 
         {/* Status Bar */}
-        <div className="px-6 py-2 bg-secondary/50 backdrop-blur-sm flex items-center gap-3 border-b border-border">
+        <div className="relative z-50 px-6 py-2 bg-secondary/50 backdrop-blur-sm flex items-center gap-3 border-b border-border">
           <ModelSelector 
             currentModel={selectedModel}
             onModelSelect={handleModelChange}
@@ -398,42 +405,6 @@ function App() {
               <DialogTitle>Settings</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
-              {runtime === "webgpu" && models.length > 0 && (
-                <div>
-                  <label className="text-sm font-medium text-foreground">Model</label>
-                  <select
-                    value={selectedModel || ''}
-                    onChange={(e) => handleModelChange(e.target.value)}
-                    className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="">Select a model...</option>
-                    {models.map((model) => (
-                      <option key={model.model_id} value={model.model_id}>
-                        {model.model_id}
-                      </option>
-                    ))}
-                  </select>
-                  {!llmService.engine && selectedModel && (
-                    <Button
-                      onClick={() => initializeLLM(selectedModel)}
-                      className="mt-2 w-full"
-                      disabled={isInitializing}
-                    >
-                      {isInitializing ? 'Loading...' : 'Load Model'}
-                    </Button>
-                  )}
-                </div>
-              )}
-              
-              {runtime === "wasm" && !llmService.engine && (
-                <Button
-                  onClick={() => initializeLLM()}
-                  className="w-full"
-                  disabled={isInitializing}
-                >
-                  {isInitializing ? 'Loading WASM...' : 'Initialize WASM Model'}
-                </Button>
-              )}
               
               <div>
                 <label className="text-sm font-medium text-foreground">

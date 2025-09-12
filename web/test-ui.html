@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI Test</title>
+</head>
+<body>
+    <h1>Testing UI Components</h1>
+    <p>Visit <a href="http://localhost:8000">http://localhost:8000</a> to test the app.</p>
+    
+    <h2>Fixed Issues:</h2>
+    <ul>
+        <li>✅ Removed redundant model selector from settings dialog</li>
+        <li>✅ Fixed z-index for ModelSelector dropdown (z-50 → z-[100])</li>
+        <li>✅ Fixed z-index for PersonaSelector dropdown (z-50 → z-[100])</li>
+        <li>✅ Fixed z-index for ThemeSwitcher dropdown (z-50 → z-[100])</li>
+        <li>✅ Removed WASM mode restriction from ModelSelector button</li>
+        <li>✅ Allowed dropdown to show during runtime detection</li>
+    </ul>
+    
+    <h2>To Test:</h2>
+    <ol>
+        <li>Click on "Select Model" button - dropdown should appear</li>
+        <li>Click on "🤖 Assistant" button - persona selector should appear</li>
+        <li>Click on theme buttons (☀️/🌙 and palette) - theme selector should work</li>
+        <li>Click on Upload button - document upload area should toggle</li>
+    </ol>
+    
+    <h2>Known State:</h2>
+    <ul>
+        <li>PouchDB falls back to localStorage (working)</li>
+        <li>Runtime detection happens on load</li>
+        <li>WebGPU models are available for selection</li>
+    </ul>
+</body>
+</html>

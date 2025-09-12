@@ -1,22 +1,44 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Palette } from 'lucide-react';
+import DropdownPortal from './DropdownPortal';
 
 const ThemeSwitcher = () => {
   const { currentTheme, setTheme, themes } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    // Calculate dropdown position
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        right: window.innerWidth - rect.right + window.scrollX
+      });
+    }
+
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          buttonRef.current && !buttonRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    // Delay adding the listener to avoid catching the opening click
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleQuickToggle = () => {
     // Quick toggle between light and dark
@@ -24,7 +46,7 @@ const ThemeSwitcher = () => {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       <div className="flex items-center gap-2">
         {/* Quick toggle button for light/dark */}
         <button
@@ -39,7 +61,11 @@ const ThemeSwitcher = () => {
 
         {/* Theme palette button */}
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          ref={buttonRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
           className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
           title="Choose theme"
         >
@@ -49,8 +75,16 @@ const ThemeSwitcher = () => {
 
       {/* Theme dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded-lg bg-popover border border-border shadow-lg z-50">
-          <div className="p-2">
+        <DropdownPortal>
+          <div 
+            ref={dropdownRef}
+            className="fixed w-48 rounded-lg bg-popover border border-border shadow-lg z-[9999]"
+            style={{ 
+              top: `${dropdownPosition.top + 8}px`, 
+              right: `${dropdownPosition.right}px` 
+            }}
+          >
+            <div className="p-2">
             <div className="text-xs font-medium text-muted-foreground mb-2 px-2">
               Choose Theme
             </div>
@@ -66,14 +100,15 @@ const ThemeSwitcher = () => {
                 }`}
               >
                 <span className="text-lg">{theme.icon}</span>
-                <span className="text-sm font-medium">{theme.name}</span>
+                <span className="text-sm font-medium text-foreground">{theme.name}</span>
                 {currentTheme === key && (
-                  <span className="ml-auto text-xs">✓</span>
+                  <span className="ml-auto text-xs text-foreground">✓</span>
                 )}
               </button>
             ))}
           </div>
-        </div>
+          </div>
+        </DropdownPortal>
       )}
     </div>
   );

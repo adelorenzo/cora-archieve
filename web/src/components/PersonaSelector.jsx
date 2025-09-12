@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePersona } from '../contexts/PersonaContext';
 import { User, Plus, Edit2, Trash2 } from 'lucide-react';
+import DropdownPortal from './DropdownPortal';
 
 const PersonaSelector = () => {
   const { 
@@ -15,7 +16,9 @@ const PersonaSelector = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [editingPersona, setEditingPersona] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -25,17 +28,36 @@ const PersonaSelector = () => {
   });
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    // Calculate dropdown position
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        right: window.innerWidth - rect.right + window.scrollX
+      });
+    }
+
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          buttonRef.current && !buttonRef.current.contains(event.target)) {
         setIsOpen(false);
         setIsCreating(false);
         setEditingPersona(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    // Delay adding the listener to avoid catching the opening click
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleCreate = () => {
     if (formData.name && formData.systemPrompt) {
@@ -71,9 +93,13 @@ const PersonaSelector = () => {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
         className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
       >
         <span className="text-lg">{personas[activePersona]?.icon}</span>
@@ -82,8 +108,16 @@ const PersonaSelector = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-80 rounded-lg bg-popover border border-border shadow-lg z-50 max-h-[500px] overflow-y-auto">
-          <div className="p-3">
+        <DropdownPortal>
+          <div 
+            ref={dropdownRef}
+            className="fixed w-80 rounded-lg bg-popover border border-border shadow-lg z-[9999] max-h-[500px] overflow-y-auto"
+            style={{ 
+              top: `${dropdownPosition.top + 8}px`, 
+              right: `${dropdownPosition.right}px` 
+            }}
+          >
+            <div className="p-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-muted-foreground">Select Persona</span>
               <button
@@ -114,7 +148,7 @@ const PersonaSelector = () => {
                     >
                       <span className="text-lg">{persona.icon}</span>
                       <div className="flex-1">
-                        <div className="text-sm font-medium">{persona.name}</div>
+                        <div className="text-sm font-medium text-foreground">{persona.name}</div>
                         <div className="text-xs text-muted-foreground line-clamp-1">
                           {persona.systemPrompt}
                         </div>
@@ -144,7 +178,7 @@ const PersonaSelector = () => {
             {/* Create/Edit Form */}
             {(isCreating || editingPersona) && (
               <div className="space-y-3">
-                <div className="text-sm font-medium mb-2">
+                <div className="text-sm font-medium mb-2 text-foreground">
                   {isCreating ? 'Create Custom Persona' : 'Edit Persona'}
                 </div>
                 
@@ -209,7 +243,8 @@ const PersonaSelector = () => {
               </div>
             )}
           </div>
-        </div>
+          </div>
+        </DropdownPortal>
       )}
     </div>
   );

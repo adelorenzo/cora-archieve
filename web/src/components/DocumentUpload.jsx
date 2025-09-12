@@ -196,7 +196,7 @@ const DocumentUpload = ({ onDocumentsChange, className }) => {
       {/* Upload Area */}
       <div
         className={cn(
-          "relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
+          "relative border-2 border-dashed rounded-xl p-8 text-center transition-colors",
           dragActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/50",
           uploading && "pointer-events-none opacity-50"
         )}
@@ -204,7 +204,6 @@ const DocumentUpload = ({ onDocumentsChange, className }) => {
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        onClick={() => !uploading && fileInputRef.current?.click()}
       >
         <input
           ref={fileInputRef}
@@ -232,8 +231,18 @@ const DocumentUpload = ({ onDocumentsChange, className }) => {
               {uploading ? 'Processing files...' : 'Upload Documents'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Drag and drop or click to select TXT, MD, or PDF files
+              Drag and drop files here
             </p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!uploading) fileInputRef.current?.click();
+              }}
+              disabled={uploading}
+              className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              Or click to browse files
+            </button>
           </div>
         </div>
       </div>

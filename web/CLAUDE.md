@@ -45,9 +45,12 @@ npm run preview
    - Streaming response handling
    - Model switching capabilities
 
-3. **src/components/ui/** - shadcn/ui components
-   - Button, Dialog, and other reusable UI components
-   - Consistent styling with Tailwind CSS
+3. **src/components/** - React components
+   - **ui/** - shadcn/ui components (Button, Dialog, etc.)
+   - **ModelSelector.jsx** - AI model selection dropdown with WebGPU/WASM support
+   - **PersonaSelector.jsx** - AI persona management with custom persona creation
+   - **ThemeSwitcher.jsx** - Theme selection with quick light/dark toggle
+   - **DropdownPortal.jsx** - Portal-based dropdown rendering for z-index isolation
 
 4. **sw.js** - Service Worker (updated for Vite)
    - Caches built assets and model shards
@@ -72,12 +75,13 @@ npm run preview
 
 ### UI Features
 
-- Dark theme with modern gradients and animations
-- Responsive design for desktop and mobile
-- Typing indicators during message generation
-- Runtime status badges (WebGPU/WASM)
-- Model selector with temperature controls
-- Function calling demo with getTime()
+- **Theme System**: 8 themes (Light, Dark, Ocean, Forest, Sunset, Midnight, Rose, Monochrome)
+- **AI Personas**: Built-in personas (Assistant, Coder, Teacher, Creative Writer, Analyst) + custom personas
+- **Model Selection**: Dynamic model picker with WebGPU/WASM runtime detection
+- **Portal Dropdowns**: Z-index isolated dropdowns with proper dark theme support
+- **Responsive Design**: Desktop and mobile optimized
+- **Streaming UI**: Real-time message updates during LLM generation
+- **Runtime Status**: WebGPU/WASM indicators with automatic fallback
 
 ## Testing Considerations
 

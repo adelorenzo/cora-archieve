@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Cora</title>
+</head>
+<body>
+  <h1>Testing Cora App</h1>
+  <iframe src="http://localhost:8000" width="100%" height="600" id="app-frame"></iframe>
+  
+  <div id="status">Checking...</div>
+  
+  <script>
+    setTimeout(() => {
+      const frame = document.getElementById('app-frame');
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        const root = doc.getElementById('root');
+        if (root && root.children.length > 0) {
+          document.getElementById('status').innerHTML = '✅ App is rendering content';
+        } else {
+          document.getElementById('status').innerHTML = '❌ App root is empty';
+        }
+      } catch(e) {
+        document.getElementById('status').innerHTML = '⚠️ Cannot access iframe (CORS)';
+      }
+    }, 2000);
+  </script>
+</body>
+</html>
