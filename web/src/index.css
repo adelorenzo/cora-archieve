@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .message-bubble {
+    @apply rounded-2xl px-4 py-3 max-w-[85%] break-words shadow-lg;
+  }
+  
+  .user-message {
+    @apply bg-gradient-to-r from-violet-500 to-purple-500 text-white ml-auto;
+  }
+  
+  .assistant-message {
+    @apply bg-white text-gray-800 border border-gray-200;
+  }
+  
+  .typing-indicator {
+    @apply inline-flex gap-1;
+  }
+  
+  .typing-indicator span {
+    @apply w-2 h-2 bg-purple-500 rounded-full animate-pulse;
+  }
+}

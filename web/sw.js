@@ -1,13 +1,11 @@
 // sw.js — cache static assets + attempt to cache model shards for faster reloads
-const CACHE = "webllm-cache-v1";
+const CACHE = "webllm-react-cache-v1";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
   "./manifest.json",
-  "../public/icon-192.png",
-  "../public/icon-512.png",
+  "./public/icon-192.png",
+  "./public/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
