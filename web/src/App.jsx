@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, Upload, BookOpen, Globe, Search } from 'lucide-react';
+import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, Upload, BookOpen, Globe, Search, MessageSquare } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Badge } from './components/ui/badge';
@@ -12,6 +12,7 @@ import ModelSelector from './components/ModelSelector';
 const DocumentUpload = React.lazy(() => import('./components/DocumentUpload'));
 const KnowledgeBase = React.lazy(() => import('./components/KnowledgeBase'));
 const WebSearchPanel = React.lazy(() => import('./components/WebSearchPanel'));
+const ConversationSwitcher = React.lazy(() => import('./components/ConversationSwitcher'));
 import { useTheme } from './contexts/ThemeContext';
 import { usePersona } from './contexts/PersonaContext';
 import { useRAG } from './hooks/useRAG';
@@ -20,6 +21,7 @@ import performanceOptimizer from './lib/performance-optimizer';
 import smartFetchService from './lib/smart-fetch-service';
 import functionCallingService from './lib/function-calling-service';
 import settingsService from './lib/settings-service';
+import conversationManager from './lib/conversation-manager';
 import { cn } from './lib/utils';
 
 function App() {
@@ -33,6 +35,7 @@ function App() {
     console.log('[App] Initial theme:', currentTheme);
     console.log('[App] Active persona:', activePersonaData?.name);
     console.log('[App] RAG enabled:', isRAGEnabled());
+    console.log('[App] Active conversation:', activeConversation?.title);
     console.log('[App] Environment:', {
       userAgent: navigator.userAgent,
       webGPU: 'gpu' in navigator,
@@ -40,8 +43,21 @@ function App() {
       indexedDB: 'indexedDB' in window
     });
   }, []);
+
+  // Listen for conversation changes
+  useEffect(() => {
+    const handleConversationChange = (data) => {
+      setActiveConversation(data.activeConversation);
+      setConversations(data.conversations);
+    };
+    
+    conversationManager.addListener(handleConversationChange);
+    return () => conversationManager.removeListener(handleConversationChange);
+  }, []);
   
-  const [messages, setMessages] = useState([]);
+  const [activeConversation, setActiveConversation] = useState(() => conversationManager.getActiveConversation());
+  const [conversations, setConversations] = useState(() => conversationManager.getAllConversations());
+  const messages = activeConversation?.messages || [];
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -55,8 +71,45 @@ function App() {
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showWebSearch, setShowWebSearch] = useState(false);
+  const [showConversations, setShowConversations] = useState(false);
   const [detectedUrls, setDetectedUrls] = useState([]);
   const messagesEndRef = useRef(null);
+
+  // Helper functions for conversation management
+  const addMessageToConversation = (message) => {
+    const conversationId = activeConversation?.id;
+    if (conversationId) {
+      conversationManager.addMessage(conversationId, message);
+      // Update local state to trigger re-render
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
+  };
+
+  const updateLastMessage = (updates) => {
+    if (activeConversation?.messages.length > 0) {
+      const conversationId = activeConversation.id;
+      const conversation = conversationManager.getConversation(conversationId);
+      const lastMessage = conversation.messages[conversation.messages.length - 1];
+      Object.assign(lastMessage, updates);
+      conversationManager.save();
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
+  };
+
+  const removeLastMessage = () => {
+    if (activeConversation?.messages.length > 0) {
+      const conversationId = activeConversation.id;
+      const conversation = conversationManager.getConversation(conversationId);
+      conversation.messages.pop();
+      conversationManager.save();
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
+  };
+
+  const handleConversationChange = (conversation) => {
+    setActiveConversation(conversation);
+    setShowConversations(false);
+  };
   const getSystemMessages = (includeToolInstructions = false, useManualFormat = false) => {
     const basePrompt = activePersonaData?.systemPrompt || "You are a concise, helpful assistant that runs 100% locally in the user's browser.";
     const ragPrompt = isRAGEnabled() ? 
@@ -211,6 +264,9 @@ function App() {
     const userMessage = { role: 'user', content: input.trim() };
     const userQuery = input.trim();
     
+    // Add user message to conversation
+    addMessageToConversation(userMessage);
+    
     // Check for URLs and smart fetch if detected
     let webContext = '';
     if (smartFetchService.shouldFetchUrls(userQuery)) {
@@ -221,7 +277,7 @@ function App() {
         role: 'system', 
         content: '🔍 Detected URLs in your message. Fetching web content...' 
       };
-      setMessages(prev => [...prev, userMessage, loadingMessage]);
+      addMessageToConversation(loadingMessage);
       
       try {
         // Initialize smart fetch if needed
@@ -237,38 +293,34 @@ function App() {
           console.log(`[App] Fetched ${fetchResult.content.length} URLs successfully`);
           
           // Remove loading message and add success message
-          setMessages(prev => {
-            const msgs = prev.slice(0, -1); // Remove loading message
-            return [...msgs, {
-              role: 'system',
-              content: `✅ Fetched content from ${fetchResult.content.length} URL(s). Analyzing...`
-            }];
-          });
+          removeLastMessage();
+          const successMessage = {
+            role: 'system',
+            content: `✅ Fetched content from ${fetchResult.content.length} URL(s). Analyzing...`
+          };
+          addMessageToConversation(successMessage);
           
           // Small delay to show the success message
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           // Remove success message
-          setMessages(prev => prev.slice(0, -1));
+          removeLastMessage();
         } else {
           // Remove loading message if no content fetched
-          setMessages(prev => prev.slice(0, -1));
+          removeLastMessage();
         }
       } catch (error) {
         console.error('[App] Smart fetch failed:', error);
         // Remove loading message and show error
-        setMessages(prev => {
-          const msgs = prev.slice(0, -1);
-          return [...msgs, {
-            role: 'system',
-            content: '⚠️ Unable to fetch web content. Proceeding without it.'
-          }];
-        });
+        removeLastMessage();
+        const errorMessage = {
+          role: 'system',
+          content: '⚠️ Unable to fetch web content. Proceeding without it.'
+        };
+        addMessageToConversation(errorMessage);
         await new Promise(resolve => setTimeout(resolve, 2000));
-        setMessages(prev => prev.slice(0, -1));
+        removeLastMessage();
       }
-    } else {
-      setMessages(prev => [...prev, userMessage]);
     }
     
     setInput('');
@@ -276,7 +328,7 @@ function App() {
     setIsStreaming(true);
 
     const assistantMessage = { role: 'assistant', content: '' };
-    setMessages(prev => [...prev, assistantMessage]);
+    addMessageToConversation(assistantMessage);
 
     try {
       // Check if we should enable web search based on the query AND if the model supports it
@@ -332,11 +384,7 @@ function App() {
         // Handle regular content
         if (delta.content) {
           contentBuffer += delta.content;
-          setMessages(prev => {
-            const newMessages = [...prev];
-            newMessages[newMessages.length - 1].content = contentBuffer;
-            return newMessages;
-          });
+          updateLastMessage({ content: contentBuffer });
         }
         
         // Check for text-based function call (fallback for models that don't support proper function calling)
@@ -359,11 +407,7 @@ function App() {
           // Execute the function call
           try {
             // Add status message
-            setMessages(prev => {
-              const newMessages = [...prev];
-              newMessages[newMessages.length - 1].content = contentBuffer + '\n\n🔍 Searching the web...';
-              return newMessages;
-            });
+            updateLastMessage({ content: contentBuffer + '\n\n🔍 Searching the web...' });
             
             // Execute the function
             const functionResponse = await functionCallingService.processFunctionCall(functionCallBuffer);
@@ -555,7 +599,14 @@ function App() {
   };
 
   const clearChat = () => {
-    setMessages([]);
+    if (activeConversation) {
+      // Clear messages in current conversation
+      conversationManager.updateConversation(activeConversation.id, {
+        messages: [],
+        updatedAt: new Date()
+      });
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
   };
 
   return (
@@ -575,6 +626,18 @@ function App() {
           </div>
           <div className="flex items-center gap-2">
             <PersonaSelector />
+
+            {/* Conversations Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowConversations(!showConversations)}
+              className="text-muted-foreground hover:text-foreground hover:bg-secondary"
+              title="Conversations"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+
             <ThemeSwitcher />
             
             {/* RAG Status Badge */}
@@ -701,8 +764,24 @@ function App() {
           </div>
         )}
 
-        {/* Main Content Area with Optional Web Search Panel */}
+        {/* Main Content Area with Optional Conversation Switcher and Web Search Panel */}
         <div className="flex-1 flex mx-6 my-4 gap-4 min-h-0">
+          {/* Conversation Switcher - slides in from left */}
+          {showConversations && (
+            <div className="w-80 bg-card rounded-2xl shadow-xl backdrop-blur-sm border border-border">
+              <React.Suspense fallback={
+                <div className="w-full h-full p-4 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              }>
+                <ConversationSwitcher
+                  onConversationChange={handleConversationChange}
+                  className="h-full"
+                />
+              </React.Suspense>
+            </div>
+          )}
+
           {/* Chat Container - fills remaining space */}
           <div className={cn(
             "flex-1 flex flex-col bg-card rounded-2xl shadow-xl backdrop-blur-sm border border-border",
