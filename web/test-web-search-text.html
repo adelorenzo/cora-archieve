@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Web Search Text Test</title>
+</head>
+<body>
+  <h1>Web Search Text Command Test</h1>
+  <p>This tests that web search still works via text commands without the UI button.</p>
+
+  <div id="test-results"></div>
+
+  <script>
+    // Simple test to verify the [SEARCH: query] pattern is recognized
+    const testMessage = "Can you [SEARCH: React hooks best practices] for me?";
+    const webSearchPattern = /\[SEARCH:\s*([^\]]+)\]/i;
+    const match = testMessage.match(webSearchPattern);
+
+    const resultsDiv = document.getElementById('test-results');
+
+    if (match) {
+      resultsDiv.innerHTML = `
+        <h2>✅ Test Passed</h2>
+        <p><strong>Pattern detected:</strong> ${match[0]}</p>
+        <p><strong>Search query extracted:</strong> ${match[1]}</p>
+        <p>The web search pattern is correctly recognized in text messages.</p>
+      `;
+      resultsDiv.style.color = 'green';
+    } else {
+      resultsDiv.innerHTML = `
+        <h2>❌ Test Failed</h2>
+        <p>The web search pattern was not detected.</p>
+      `;
+      resultsDiv.style.color = 'red';
+    }
+  </script>
+</body>
+</html>

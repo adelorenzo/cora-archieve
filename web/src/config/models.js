@@ -1,15 +1,15 @@
 /**
  * Curated Models Configuration
  *
- * These 5 models are carefully selected to provide optimal browser performance:
- * 
+ * These 4 models are carefully selected to provide optimal browser performance:
+ *
  * Selection Criteria:
  * - Memory footprint: Must work within browser memory constraints (100MB-2GB range)
  * - Inference speed: Fast enough for real-time chat interaction
  * - Model quality: Good to excellent output quality for their size class
  * - Use case diversity: Cover different scenarios (speed, multilingual, coding, creative)
  * - Browser compatibility: Verified to work with WebLLM/WebGPU
- * 
+ *
  * Priority system: Lower number = higher priority for auto-selection
  */
 export const CURATED_MODELS = [
@@ -36,17 +36,6 @@ export const CURATED_MODELS = [
     priority: 2
   },
   {
-    // Google's balanced model with strong creative capabilities
-    model_id: 'gemma-2-2b-it-q4f16_1-MLC',
-    name: 'Gemma 2 2B',
-    description: 'Google\'s balanced model with strong capabilities',
-    size: '~1.3GB',
-    speed: 'Moderate',
-    quality: 'Very Good',
-    useCase: 'Creative tasks, general chat',
-    priority: 3
-  },
-  {
     // Microsoft's specialized model for technical tasks
     model_id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
     name: 'Phi 3.5 Mini',
@@ -55,7 +44,7 @@ export const CURATED_MODELS = [
     speed: 'Moderate',
     quality: 'Very Good',
     useCase: 'Coding, reasoning, analysis',
-    priority: 4
+    priority: 3
   },
   {
     // Hermes model with function calling support
@@ -66,22 +55,22 @@ export const CURATED_MODELS = [
     speed: 'Slow',
     quality: 'Excellent',
     useCase: 'Advanced tasks, function calling',
-    priority: 5 // Lower priority due to large size
+    priority: 4 // Lower priority due to large size
   },
 ];
 
 // Model categories for filtering/organization
 export const MODEL_CATEGORIES = {
   ULTRA_FAST: ['SmolLM2-135M-Instruct-q4f16_1-MLC'],
-  GENERAL: ['gemma-2-2b-it-q4f16_1-MLC', 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC'],
+  GENERAL: ['DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC'],
   CODING: ['Phi-3.5-mini-instruct-q4f16_1-MLC'],
-  CREATIVE: ['gemma-2-2b-it-q4f16_1-MLC']
+  ADVANCED: ['Hermes-3-Llama-3.1-8B-q4f16_1-MLC']
 };
 
 // Recommended models by use case
 export const RECOMMENDED_MODELS = {
   LOW_MEMORY: 'SmolLM2-135M-Instruct-q4f16_1-MLC',
-  BALANCED: 'gemma-2-2b-it-q4f16_1-MLC',
+  BALANCED: 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC',
   CODING: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
-  CREATIVE: 'gemma-2-2b-it-q4f16_1-MLC'
+  ADVANCED: 'Hermes-3-Llama-3.1-8B-q4f16_1-MLC'
 };
