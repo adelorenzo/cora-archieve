@@ -42,87 +42,23 @@ class PerformanceOptimizer {
     }
   }
 
-  /**
-   * Lazy load RAG services only when user interacts with RAG features
-   */
-  async loadRAGServices() {
-    const moduleId = 'rag-services';
-    
-    if (this.loadedModules.has(moduleId)) {
-      return;
-    }
-
-    if (this.loadingPromises.has(moduleId)) {
-      return this.loadingPromises.get(moduleId);
-    }
-
-    const startTime = Date.now();
-    
-    const loadPromise = (async () => {
-      try {
-        // Track user interaction
-        this.trackInteraction('rag-feature-use');
-        
-        console.log('Loading RAG services on demand...');
-        
-        // Dynamically import all RAG-related modules
-        const [
-          { default: ragService },
-          { default: embeddingService },
-          { default: dbService }
-        ] = await Promise.all([
-          import('./embeddings/rag-service.js'),
-          import('./embeddings/embedding-service.js'),
-          import('./database/db-service.js')
-        ]);
-
-        this.loadedModules.add(moduleId);
-        
-        const loadTime = Date.now() - startTime;
-        this.performanceMetrics.bundleLoadTimes[moduleId] = loadTime;
-        
-        console.log(`RAG services loaded in ${loadTime}ms`);
-        
-        return { ragService, embeddingService, dbService };
-      } catch (error) {
-        this.loadingPromises.delete(moduleId);
-        throw new Error(`Failed to load RAG services: ${error.message}`);
-      }
-    })();
-
-    this.loadingPromises.set(moduleId, loadPromise);
-    return loadPromise;
-  }
 
   /**
    * Preload critical components based on user behavior patterns
    */
   async preloadCriticalComponents() {
-    // Only preload if user has interacted with advanced features
-    if (this.shouldPreloadAdvancedFeatures()) {
-      setTimeout(() => {
-        this.loadRAGServices().catch(error => {
-          console.warn('RAG preload failed:', error);
-        });
-      }, 2000); // Delay to not interfere with initial load
-    }
+    // Currently no critical components to preload
+    // This method is kept for future use
   }
 
   /**
    * Determine if advanced features should be preloaded
    */
   shouldPreloadAdvancedFeatures() {
-    // Check if user has previously used RAG features
-    const ragUsage = localStorage.getItem('cora-rag-usage');
-    if (ragUsage) {
-      const usage = JSON.parse(ragUsage);
-      return usage.count > 2 || (Date.now() - usage.lastUsed) < 86400000; // 24 hours
-    }
-    
     // Check if user seems engaged (multiple interactions)
     const totalInteractions = Array.from(this.userInteractions.values())
       .reduce((sum, count) => sum + count, 0);
-      
+
     return totalInteractions > 5;
   }
 
@@ -132,16 +68,16 @@ class PerformanceOptimizer {
   trackInteraction(type) {
     const count = this.userInteractions.get(type) || 0;
     this.userInteractions.set(type, count + 1);
-    
+
     this.performanceMetrics.interactionCounts[type] = count + 1;
-    
-    // Persist RAG usage for future sessions
-    if (type === 'rag-feature-use') {
+
+    // Persist usage for future sessions
+    if (type === 'feature-use') {
       const usage = {
         count: count + 1,
         lastUsed: Date.now()
       };
-      localStorage.setItem('cora-rag-usage', JSON.stringify(usage));
+      localStorage.setItem('cora-feature-usage', JSON.stringify(usage));
     }
   }
 
@@ -222,26 +158,7 @@ class PerformanceOptimizer {
       });
     }
     
-    // Load time recommendations
-    const ragLoadTime = metrics.bundleLoadTimes['rag-services'];
-    if (ragLoadTime && ragLoadTime > 3000) {
-      recommendations.push({
-        type: 'performance',
-        severity: 'medium',
-        message: 'RAG services taking longer to load. Check network connection.',
-        action: 'checkNetwork'
-      });
-    }
-    
-    // Feature usage recommendations
-    if (metrics.interactionCounts['rag-feature-use'] && !this.loadedModules.has('rag-services')) {
-      recommendations.push({
-        type: 'optimization',
-        severity: 'low',
-        message: 'Consider keeping RAG features loaded for faster access.',
-        action: 'preloadRAG'
-      });
-    }
+    // Load time recommendations can be added here for future features
     
     return recommendations;
   }

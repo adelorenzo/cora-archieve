@@ -1,7 +1,6 @@
-const WEBLLM_URL = "https://unpkg.com/@mlc-ai/web-llm@0.2.79?module";
-const WLLAMA_URL = "https://unpkg.com/@wllama/wllama@2.3.5/esm/wasm-from-cdn.js?module";
+const WEBLLM_URL = "https://esm.run/@mlc-ai/web-llm@0.2.79";
+const WLLAMA_URL = "https://cdn.jsdelivr.net/npm/@wllama/wllama@2.3.5/esm/wasm-from-cdn.js";
 
-import ragService from './embeddings/rag-service.js';
 import { CURATED_MODELS, RECOMMENDED_MODELS } from '../config/models.js';
 import modelOptimizer from './model-optimizer.js';
 
@@ -11,7 +10,6 @@ class LLMService {
     this.runtime = "detecting";
     this.currentModel = null;
     this.initCallback = null;
-    this.ragService = ragService;
     this.optimizer = modelOptimizer;
   }
 
@@ -99,7 +97,13 @@ class LLMService {
   }
 
   async initWebLLM(model) {
-    const webllm = await import(/* @vite-ignore */ WEBLLM_URL);
+    let webllm;
+    try {
+      webllm = await import(/* @vite-ignore */ WEBLLM_URL);
+    } catch (error) {
+      console.error('Failed to load WebLLM from CDN:', error);
+      throw new Error('WebLLM CDN unavailable');
+    }
     
     // Get our curated models that are available in WebLLM
     const curatedModels = await this.getAvailableModels();
@@ -216,16 +220,34 @@ class LLMService {
   }
 
   async initWASM() {
-    const wllamaModule = await import(/* @vite-ignore */ WLLAMA_URL);
-    const { startWasmFallback } = await import("../../fallback/wllama.js");
-    
-    if (this.initCallback) {
-      this.initCallback("Loading WASM model...");
+    try {
+      const wllamaModule = await import(/* @vite-ignore */ WLLAMA_URL);
+      const { startWasmFallback } = await import("../../fallback/wllama.js");
+
+      if (this.initCallback) {
+        this.initCallback("Loading WASM model...");
+      }
+
+      this.engine = await startWasmFallback({ WasmFromCDN: wllamaModule.default });
+      this.currentModel = "stories260K";
+      return { runtime: "wasm", models: [], selectedModel: "stories260K" };
+    } catch (error) {
+      console.error('WASM initialization failed:', error);
+      // Return a minimal stub so the app doesn't crash
+      this.engine = null;
+      this.currentModel = null;
+
+      if (this.initCallback) {
+        this.initCallback("WASM unavailable - running without LLM");
+      }
+
+      return {
+        runtime: "none",
+        models: [],
+        selectedModel: null,
+        error: "WASM initialization failed. The app will run without LLM capabilities."
+      };
     }
-    
-    this.engine = await startWasmFallback({ WasmFromCDN: wllamaModule.default });
-    this.currentModel = "stories260K";
-    return { runtime: "wasm", models: [], selectedModel: "stories260K" };
   }
 
   async *generateStream(messages, options = {}) {
@@ -370,60 +392,18 @@ class LLMService {
   }
 
   /**
-   * Check if RAG is enabled and initialized
-   * @returns {boolean}
-   */
-  isRAGEnabled() {
-    return this.ragService && this.ragService.initialized;
-  }
-
-  /**
-   * Enhanced chat method with RAG context integration and function calling
+   * Chat method that directly uses generateStream
    * @param {Array} messages - Chat messages
    * @param {Object} options - Generation options including tools
-   * @returns {AsyncGenerator} Message stream with RAG context and function calls
+   * @returns {AsyncGenerator} Message stream
    */
   async *chat(messages, options = {}) {
     if (!this.engine) {
       throw new Error("LLM engine not initialized");
     }
 
-    let enhancedMessages = [...messages];
-    
-    // Get RAG context if enabled and user message exists
-    if (this.isRAGEnabled() && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      
-      if (lastMessage.role === 'user') {
-        try {
-          const searchContext = await this.ragService.getSearchContext(lastMessage.content, {
-            limit: options.ragLimit || 5,
-            threshold: options.ragThreshold || 0.7
-          });
-          
-          if (searchContext) {
-            // Insert RAG context before the user message
-            const contextMessage = {
-              role: 'system',
-              content: `Relevant information from knowledge base:\n\n${searchContext}\n\n---\n\nPlease answer the user's question using the above information where relevant. If the information doesn't help answer the question, respond normally. Always cite your sources when using information from the knowledge base.`
-            };
-            
-            // Insert context message before the last user message
-            enhancedMessages = [
-              ...messages.slice(0, -1),
-              contextMessage,
-              lastMessage
-            ];
-          }
-        } catch (error) {
-          console.warn('RAG context retrieval failed:', error);
-          // Continue without RAG context
-        }
-      }
-    }
-
-    // Use existing generateStream method with enhanced messages
-    yield* this.generateStream(enhancedMessages, options);
+    // Directly use generateStream without any RAG enhancement
+    yield* this.generateStream(messages, options);
   }
 
   /**

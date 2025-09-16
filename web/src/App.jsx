@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, Upload, BookOpen, Search, MessageSquare } from 'lucide-react';
+import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Badge } from './components/ui/badge';
@@ -8,33 +8,27 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import PersonaSelector from './components/PersonaSelector';
 import ModelSelector from './components/ModelSelector';
-// Lazy load RAG components to reduce initial bundle size
-const DocumentUpload = React.lazy(() => import('./components/DocumentUpload'));
-const KnowledgeBase = React.lazy(() => import('./components/KnowledgeBase'));
+// Lazy load components to reduce initial bundle size
 const ConversationSwitcher = React.lazy(() => import('./components/ConversationSwitcher'));
 import { useTheme } from './contexts/ThemeContext';
 import { usePersona } from './contexts/PersonaContext';
-import { useRAG } from './hooks/useRAG';
 import llmService from './lib/llm-service';
 import performanceOptimizer from './lib/performance-optimizer';
 import smartFetchService from './lib/smart-fetch-service';
 import functionCallingService from './lib/function-calling-service';
 import settingsService from './lib/settings-service';
 import conversationManager from './lib/conversation-manager';
-import autoIndexService from './lib/auto-index-service';
 import { cn } from './lib/utils';
 
 function App() {
   const { currentTheme } = useTheme();
   const { activePersonaData } = usePersona();
-  const { ragState, isRAGEnabled, getRAGStatus, initializeRAG, updateStats } = useRAG();
   
   // Debug logging on component mount
   useEffect(() => {
     console.log('[App] Component mounted');
     console.log('[App] Initial theme:', currentTheme);
     console.log('[App] Active persona:', activePersonaData?.name);
-    console.log('[App] RAG enabled:', isRAGEnabled());
     console.log('[App] Active conversation:', activeConversation?.title);
     console.log('[App] Environment:', {
       userAgent: navigator.userAgent,
@@ -68,8 +62,6 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [temperature, setTemperature] = useState(() => settingsService.getTemperature());
   const [isStreaming, setIsStreaming] = useState(false);
-  const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
-  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showConversations, setShowConversations] = useState(false);
   const [detectedUrls, setDetectedUrls] = useState([]);
   const messagesEndRef = useRef(null);
@@ -115,9 +107,6 @@ function App() {
   };
   const getSystemMessages = (includeToolInstructions = false, useManualFormat = false) => {
     const basePrompt = activePersonaData?.systemPrompt || "You are a concise, helpful assistant that runs 100% locally in the user's browser.";
-    const ragPrompt = isRAGEnabled() ? 
-      "\n\nYou have access to a knowledge base with relevant documents. When answering questions, you can reference information from the uploaded documents if it's relevant to the user's query. Always cite your sources when using information from the knowledge base." 
-      : "";
     
     let toolPrompt = "";
     if (includeToolInstructions) {
@@ -131,7 +120,7 @@ function App() {
     }
     
     return [
-      { role: "system", content: basePrompt + ragPrompt + toolPrompt }
+      { role: "system", content: basePrompt + toolPrompt }
     ];
   };
 
@@ -143,33 +132,13 @@ function App() {
     performanceOptimizer.trackInteraction('app-start');
     console.log('[App] Performance tracking started');
 
-    // Start auto-indexing service for seamless document processing
-    console.log('[App] Starting auto-index service...');
-    autoIndexService.start();
-
-    // Intelligent RAG initialization - only if user has used RAG before
-    const shouldPreload = performanceOptimizer.shouldPreloadAdvancedFeatures();
-    console.log('[App] Should preload RAG:', shouldPreload);
-
-    if (shouldPreload) {
-      console.log('[App] Attempting RAG preload...');
-      initializeRAG().catch(error => {
-        console.warn('[App] RAG preload failed:', error);
-      });
-    }
-
     // Start performance monitoring
     setTimeout(() => {
       console.log('[App] Starting critical component preload...');
       performanceOptimizer.preloadCriticalComponents();
     }, 3000);
 
-    // Cleanup on unmount
-    return () => {
-      console.log('[App] Stopping auto-index service...');
-      autoIndexService.stop();
-    };
-  }, []); // Remove initializeRAG from dependencies to prevent infinite loop
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -393,11 +362,9 @@ function App() {
       // Only use tools parameter for non-Hermes models that support it
       const tools = useStandardTools ? functionCallingService.getToolSchemas() : undefined;
       
-      // Use the enhanced chat method that handles RAG context and function calling
+      // Use the enhanced chat method that handles function calling
       const stream = llmService.chat(allMessages, { 
         temperature: activePersonaData?.temperature || temperature,
-        ragLimit: 5,
-        ragThreshold: 0.7,
         tools: tools
       });
 
@@ -448,8 +415,6 @@ function App() {
               // Continue conversation with function result
               const continueStream = llmService.chat(updatedMessages, {
                 temperature: activePersonaData?.temperature || temperature,
-                ragLimit: 5,
-                ragThreshold: 0.7
               });
               
               // Clear the status and start new response
@@ -538,8 +503,6 @@ function App() {
                 // Continue the conversation with search results
                 const continueStream = await llmService.chat(continueMessages, {
                   temperature: activePersonaData?.temperature || temperature,
-                  ragLimit: 5,
-                  ragThreshold: 0.7
                   // Don't pass tools for the continuation
                 });
                 
@@ -655,50 +618,6 @@ function App() {
 
             <ThemeSwitcher />
             
-            {/* RAG Status Badge */}
-            {isRAGEnabled() && (
-              <Badge 
-                variant="default" 
-                className="bg-green-500 text-white hover:bg-green-600 cursor-pointer"
-                onClick={() => setKnowledgeBaseOpen(true)}
-              >
-                RAG • {ragState.indexedCount} docs
-              </Badge>
-            )}
-            
-            {/* Knowledge Base Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                performanceOptimizer.trackInteraction('knowledge-base-open');
-                setKnowledgeBaseOpen(true);
-              }}
-              className={cn(
-                "transition-colors",
-                isRAGEnabled() 
-                  ? "text-green-600 hover:text-green-700 hover:bg-green-50" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              )}
-              title={isRAGEnabled() ? "Knowledge Base (Active)" : "Knowledge Base"}
-            >
-              <BookOpen className="h-5 w-5" />
-            </Button>
-            
-            {/* Document Upload Toggle */}
-            <Button
-              variant={showDocumentUpload ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => {
-                performanceOptimizer.trackInteraction('document-upload-toggle');
-                setShowDocumentUpload(!showDocumentUpload);
-              }}
-              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title="Document Upload"
-            >
-              <Upload className="h-5 w-5" />
-            </Button>
-            
             <Button
               variant="ghost"
               size="icon"
@@ -746,24 +665,6 @@ function App() {
           </span>
         </div>
 
-        {/* Document Upload Section */}
-        {showDocumentUpload && (
-          <div className="mx-6 mb-4">
-            <React.Suspense fallback={
-              <div className="bg-card rounded-2xl p-6 border border-border animate-pulse">
-                <div className="h-32 bg-muted rounded"></div>
-              </div>
-            }>
-              <DocumentUpload
-                onDocumentsChange={() => {
-                  // Update RAG stats when documents change
-                  updateStats();
-                }}
-                className="bg-card rounded-2xl p-6 border border-border"
-              />
-            </React.Suspense>
-          </div>
-        )}
 
         {/* Main Content Area with Optional Conversation Switcher and Web Search Panel */}
         <div className="flex-1 flex mx-6 my-4 gap-4 min-h-0">
@@ -916,26 +817,6 @@ function App() {
           </DialogContent>
         </Dialog>
 
-        {/* Knowledge Base Modal */}
-        {knowledgeBaseOpen && (
-          <React.Suspense fallback={
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-card rounded-lg p-8">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                <p className="mt-4 text-sm text-muted-foreground">Loading knowledge base...</p>
-              </div>
-            </div>
-          }>
-            <KnowledgeBase
-              open={knowledgeBaseOpen}
-              onOpenChange={setKnowledgeBaseOpen}
-              onRAGStatusChange={() => {
-                // Update RAG stats when knowledge base changes
-                updateStats();
-              }}
-            />
-          </React.Suspense>
-        )}
       </div>
     </div>
   );
