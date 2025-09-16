@@ -59,41 +59,61 @@ class AutoIndexService {
     try {
       this.isProcessing = true;
 
-      // Find pending documents
+      // Find pending or error documents to retry
       const documents = await dbService.searchDocuments({
-        status: 'pending',
         indexed: false
       }, { limit: 5 }); // Process up to 5 at a time
 
-      if (documents.length === 0) {
+      // Filter for pending or error status
+      const docsToIndex = documents.filter(doc =>
+        doc.status === 'pending' || doc.status === 'error'
+      );
+
+      if (docsToIndex.length === 0) {
         return;
       }
 
-      console.log(`[AutoIndex] Found ${documents.length} pending documents to index`);
+      console.log(`[AutoIndex] Found ${docsToIndex.length} pending/error documents to index`);
 
       // Index each document
-      for (const doc of documents) {
+      for (const doc of docsToIndex) {
         try {
-          console.log(`[AutoIndex] Indexing document: ${doc.title}`);
+          // Debug document structure
+          console.log(`[AutoIndex] Document structure:`, {
+            id: doc._id,
+            title: doc.title,
+            status: doc.status,
+            indexed: doc.indexed,
+            hasContent: !!doc.content
+          });
+
+          // Ensure document has an ID
+          const docId = doc._id || doc.id;
+          if (!docId) {
+            console.error(`[AutoIndex] Document missing ID:`, doc);
+            continue;
+          }
+
+          console.log(`[AutoIndex] Indexing document: ${doc.title} (ID: ${docId})`);
 
           // Update status to processing
-          await dbService.updateDocument(doc._id, {
+          await dbService.updateDocument(docId, {
             status: 'processing'
           });
 
           // Add to RAG index
-          await ragService.addDocument({
+          await ragService.indexDocument({
             content: doc.content,
             metadata: {
               title: doc.title,
               filename: doc.filename,
-              documentId: doc._id,
+              documentId: docId,
               type: doc.contentType
             }
           });
 
           // Update status to completed
-          await dbService.updateDocument(doc._id, {
+          await dbService.updateDocument(docId, {
             status: 'completed',
             indexed: true,
             indexedAt: new Date()
@@ -103,12 +123,15 @@ class AutoIndexService {
         } catch (error) {
           console.error(`[AutoIndex] Failed to index document ${doc.title}:`, error);
 
-          // Mark as error
-          await dbService.updateDocument(doc._id, {
-            status: 'error',
-            indexed: false,
-            error: error.message
-          });
+          // Mark as error - use docId from outer scope
+          const documentId = doc._id || doc.id;
+          if (documentId) {
+            await dbService.updateDocument(documentId, {
+              status: 'error',
+              indexed: false,
+              error: error.message
+            });
+          }
         }
       }
     } catch (error) {

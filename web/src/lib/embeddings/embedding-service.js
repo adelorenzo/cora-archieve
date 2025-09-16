@@ -1,15 +1,20 @@
 /**
- * Browser-based embedding service using Transformers.js
+ * Browser-based embedding service using Transformers.js with fallback
  * Provides 100% client-side text embeddings with all-MiniLM-L6-v2 model
+ * Falls back to simple hash-based embeddings if Transformers.js fails
  */
 
 // Import safe configuration
 import { configureTransformers, getSafePipelineConfig } from './transformers-config.js';
 
+// Import fallback service
+import simpleEmbeddingService from './simple-embedding-service.js';
+
 // Lazy load transformers library to reduce initial bundle size
 let transformersModule = null;
 let pipeline = null;
 let env = null;
+let useFallback = false;
 
 // Initialize transformers module only when needed
 const initTransformers = async () => {
@@ -71,26 +76,42 @@ class EmbeddingService {
    * @returns {Promise<void>}
    */
   async initialize(progressCallback = null) {
-    if (this.model) return;
+    if (this.model || useFallback) return;
     if (this.isLoading) return this.loadingPromise;
 
     this.onProgress = progressCallback;
     this.isLoading = true;
-    
+
     this.loadingPromise = this._loadModel();
-    
+
     try {
       await this.loadingPromise;
       console.log('Embedding model loaded successfully');
     } catch (error) {
-      console.error('Failed to load embedding model:', error);
-      this.isLoading = false;
-      this.loadingPromise = null;
-      throw new Error(`Embedding model initialization failed: ${error.message}`);
+      console.error('Failed to load embedding model, using fallback:', error);
+
+      // Use fallback service
+      useFallback = true;
+      this.isLoading = true;
+
+      try {
+        await simpleEmbeddingService.initialize(progressCallback);
+        console.log('[EmbeddingService] Fallback to simple embeddings initialized');
+        this.dimensions = simpleEmbeddingService.dimensions;
+        this.modelName = 'simple-hash-embeddings (fallback)';
+        // Mark as successful when fallback works
+        this.model = 'fallback'; // Set a truthy value to indicate initialization success
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        this.isLoading = false;
+        this.loadingPromise = null;
+        throw new Error(`Both embedding services failed: ${error.message}`);
+      }
     }
-    
+
     this.isLoading = false;
-    return this.loadingPromise;
+    // Don't re-throw the error if fallback succeeded
+    return Promise.resolve();
   }
 
   /**
@@ -149,9 +170,18 @@ class EmbeddingService {
    * @returns {Promise<Array<number>|Array<Array<number>>>} Embedding vector(s)
    */
   async generateEmbeddings(texts, options = {}) {
+    // Use fallback service if activated
+    if (useFallback) {
+      return simpleEmbeddingService.generateEmbeddings(texts);
+    }
+
     if (!this.model) {
       if (options.autoInitialize !== false) {
         await this.initialize();
+        // Check if fallback was activated during initialization
+        if (useFallback) {
+          return simpleEmbeddingService.generateEmbeddings(texts);
+        }
       } else {
         throw new Error('Model not initialized. Call initialize() first.');
       }
@@ -159,7 +189,7 @@ class EmbeddingService {
 
     const isArray = Array.isArray(texts);
     const textArray = isArray ? texts : [texts];
-    
+
     if (textArray.length === 0) {
       return isArray ? [] : null;
     }
@@ -168,7 +198,7 @@ class EmbeddingService {
       // Process texts in batches for memory efficiency
       const embeddings = [];
       const batchSize = options.batchSize || this.batchSize;
-      
+
       for (let i = 0; i < textArray.length; i += batchSize) {
         const batch = textArray.slice(i, i + batchSize);
         const batchEmbeddings = await this._processBatch(batch);
@@ -176,16 +206,16 @@ class EmbeddingService {
       }
 
       return isArray ? embeddings : embeddings[0];
-      
+
     } catch (error) {
       console.error('Embedding generation failed:', error);
-      
+
       // Fallback to hash-based similarity if model fails
       if (options.fallback !== false) {
         console.warn('Falling back to hash-based embeddings');
         return this._generateHashEmbeddings(textArray, isArray);
       }
-      
+
       throw new Error(`Embedding generation failed: ${error.message}`);
     }
   }
@@ -346,20 +376,25 @@ class EmbeddingService {
    * @returns {number} Similarity score (0-1)
    */
   cosineSimilarity(a, b) {
+    // Delegate to fallback if active
+    if (useFallback) {
+      return simpleEmbeddingService.cosineSimilarity(a, b);
+    }
+
     if (a.length !== b.length) {
       throw new Error('Vectors must have same length');
     }
-    
+
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
-    
+
     for (let i = 0; i < a.length; i++) {
       dotProduct += a[i] * b[i];
       normA += a[i] * a[i];
       normB += b[i] * b[i];
     }
-    
+
     const denominator = Math.sqrt(normA) * Math.sqrt(normB);
     return denominator === 0 ? 0 : Math.max(0, dotProduct / denominator);
   }
@@ -371,6 +406,11 @@ class EmbeddingService {
    * @returns {Array<Object>} Text chunks with metadata
    */
   chunkText(text, options = {}) {
+    // Delegate to fallback if active
+    if (useFallback) {
+      return simpleEmbeddingService.chunkText(text, options);
+    }
+
     const {
       chunkSize = 1000,
       overlap = 100,
@@ -479,6 +519,11 @@ class EmbeddingService {
    * @returns {Object} Service status
    */
   getStatus() {
+    // Return fallback status if active
+    if (useFallback) {
+      return simpleEmbeddingService.getStatus();
+    }
+
     return {
       initialized: !!this.model,
       loading: this.isLoading,
@@ -496,20 +541,29 @@ class EmbeddingService {
    * Clear all caches
    */
   clearCache() {
-    this.embedCache.clear();
-    this.textCache.clear();
-    console.log('Embedding service caches cleared');
+    if (useFallback) {
+      simpleEmbeddingService.clearCache();
+    } else {
+      this.embedCache.clear();
+      this.textCache.clear();
+      console.log('Embedding service caches cleared');
+    }
   }
 
   /**
    * Cleanup resources
    */
   destroy() {
-    this.clearCache();
-    this.model = null;
-    this.isLoading = false;
-    this.loadingPromise = null;
-    this.onProgress = null;
+    if (useFallback) {
+      simpleEmbeddingService.destroy();
+      useFallback = false;
+    } else {
+      this.clearCache();
+      this.model = null;
+      this.isLoading = false;
+      this.loadingPromise = null;
+      this.onProgress = null;
+    }
   }
 }
 

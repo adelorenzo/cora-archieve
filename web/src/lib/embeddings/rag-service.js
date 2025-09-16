@@ -3,8 +3,8 @@
  * Provides document indexing and semantic search capabilities
  */
 
-// Use Transformers.js embedding service for semantic embeddings
-import embeddingService from './transformers-embedding-service.js';
+// Use embedding service with automatic fallback for semantic embeddings
+import embeddingService from './embedding-service.js';
 import dbService from '../database/db-service.js';
 
 /**
@@ -63,11 +63,19 @@ class RAGService {
       throw new Error('RAG service not initialized');
     }
 
+    // Extract document ID from metadata or document object
+    const documentId = document.metadata?.documentId || document._id || document.id;
+
+    if (!documentId) {
+      console.error('[RAG Index] Document missing ID:', document);
+      throw new Error('Document ID is required for indexing');
+    }
+
     // Prevent indexing if document is too large
     const MAX_DOCUMENT_SIZE = 500000; // 500KB limit
     if (document.content && document.content.length > MAX_DOCUMENT_SIZE) {
       console.error(`[RAG Index] Document too large: ${document.content.length} bytes (max: ${MAX_DOCUMENT_SIZE})`);
-      await dbService.updateDocument(document._id, {
+      await dbService.updateDocument(documentId, {
         status: 'error',
         indexed: false,
         error: 'Document too large for indexing'
@@ -77,7 +85,7 @@ class RAGService {
 
     try {
       // Update document status
-      await dbService.updateDocument(document._id, {
+      await dbService.updateDocument(documentId, {
         status: 'processing',
         indexed: false
       });
@@ -95,7 +103,7 @@ class RAGService {
         chunks.length = MAX_CHUNKS;
       }
 
-      console.log(`[RAG Index] Processing ${chunks.length} chunks for document: ${document.title || document.name}`);
+      console.log(`[RAG Index] Processing ${chunks.length} chunks for document: ${document.metadata?.title || document.title || document.name || documentId}`);
 
       // Generate embeddings for chunks in batches to reduce memory usage
       const texts = chunks.map(chunk => chunk.text);
@@ -125,7 +133,7 @@ class RAGService {
         // Create promises but don't await immediately
         embeddingPromises.push(
           dbService.createEmbedding({
-            documentId: document._id,
+            documentId: documentId,
             chunkIndex: chunk.index,
             text: chunk.text,
             vector: embedding,
@@ -147,27 +155,27 @@ class RAGService {
       }
 
       // Update document as indexed
-      await dbService.updateDocument(document._id, {
+      await dbService.updateDocument(documentId, {
         status: 'completed',
         indexed: true,
         chunks: texts
       });
 
-      console.log(`Successfully indexed document: ${document.title}`);
+      console.log(`Successfully indexed document: ${document.metadata?.title || document.title || documentId}`);
 
     } catch (error) {
-      console.error(`Failed to index document ${document.title}:`, error);
-      
+      console.error(`Failed to index document ${document.metadata?.title || document.title || documentId}:`, error);
+
       // Update document with error status
       try {
-        await dbService.updateDocument(document._id, {
+        await dbService.updateDocument(documentId, {
           status: 'error',
           indexed: false
         });
       } catch (updateError) {
         console.error('Failed to update document status:', updateError);
       }
-      
+
       throw error;
     }
   }

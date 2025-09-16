@@ -122,7 +122,7 @@ const DocumentUpload = ({ onDocumentsChange, className }) => {
         try {
           if (ragService.initialized) {
             setUploadProgress(prev => ({ ...prev, [fileId]: 80 }));
-            await ragService.addDocument({
+            await ragService.indexDocument({
               content: content,
               metadata: {
                 title: doc.title,

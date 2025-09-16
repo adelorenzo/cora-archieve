@@ -37,7 +37,18 @@ class TransformersEmbeddingService {
       // Configure for browser environment with memory optimization
       env.allowLocalModels = false;
       env.useBrowserCache = true;
-      env.backends.onnx.wasm.numThreads = 1; // Reduce thread usage for memory
+
+      // Safely configure ONNX backend if available
+      try {
+        if (env.backends && env.backends.onnx) {
+          if (env.backends.onnx.wasm) {
+            env.backends.onnx.wasm.numThreads = 1; // Reduce thread usage for memory
+          }
+        }
+      } catch (backendError) {
+        console.warn('[TransformersEmbedding] Could not configure ONNX backend:', backendError);
+        // Continue without thread configuration - not critical for functionality
+      }
 
       // Report progress
       if (progressCallback) {
