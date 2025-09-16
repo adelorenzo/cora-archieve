@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, Upload, BookOpen, Globe, Search, MessageSquare } from 'lucide-react';
+import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, Upload, BookOpen, Search, MessageSquare } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Badge } from './components/ui/badge';
@@ -11,7 +11,6 @@ import ModelSelector from './components/ModelSelector';
 // Lazy load RAG components to reduce initial bundle size
 const DocumentUpload = React.lazy(() => import('./components/DocumentUpload'));
 const KnowledgeBase = React.lazy(() => import('./components/KnowledgeBase'));
-const WebSearchPanel = React.lazy(() => import('./components/WebSearchPanel'));
 const ConversationSwitcher = React.lazy(() => import('./components/ConversationSwitcher'));
 import { useTheme } from './contexts/ThemeContext';
 import { usePersona } from './contexts/PersonaContext';
@@ -70,7 +69,6 @@ function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
-  const [showWebSearch, setShowWebSearch] = useState(false);
   const [showConversations, setShowConversations] = useState(false);
   const [detectedUrls, setDetectedUrls] = useState([]);
   const messagesEndRef = useRef(null);
@@ -678,20 +676,6 @@ function App() {
               <Upload className="h-5 w-5" />
             </Button>
             
-            {/* Web Search Toggle */}
-            <Button
-              variant={showWebSearch ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => {
-                performanceOptimizer.trackInteraction('web-search-toggle');
-                setShowWebSearch(!showWebSearch);
-              }}
-              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title="Web Search"
-            >
-              <Globe className="h-5 w-5" />
-            </Button>
-            
             <Button
               variant="ghost"
               size="icon"
@@ -777,10 +761,7 @@ function App() {
           )}
 
           {/* Chat Container - fills remaining space */}
-          <div className={cn(
-            "flex-1 flex flex-col bg-card rounded-2xl shadow-xl backdrop-blur-sm border border-border",
-            showWebSearch && "lg:flex-[2]"
-          )}>
+          <div className="flex-1 flex flex-col bg-card rounded-2xl shadow-xl backdrop-blur-sm border border-border">
           {/* Messages - fills available space */}
           <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-4 bg-gradient-to-b from-card to-secondary/10">
             {messages.length === 0 ? (
@@ -871,26 +852,6 @@ function App() {
         </div>
         
         {/* Web Search Panel */}
-        {showWebSearch && (
-          <div className="lg:flex-1 bg-card rounded-2xl shadow-xl backdrop-blur-sm overflow-hidden border border-border">
-            <React.Suspense fallback={
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            }>
-              <WebSearchPanel
-                onResultSelect={(result) => {
-                  // Add search result to input or as context
-                  const contextText = `[Web Search Result for "${result.query}"]\n${result.content}\n[Source: ${result.source}]\n\n`;
-                  setInput(prev => prev + contextText);
-                  // Optionally close the search panel
-                  setShowWebSearch(false);
-                }}
-                onClose={() => setShowWebSearch(false)}
-              />
-            </React.Suspense>
-          </div>
-        )}
       </div>
 
         {/* Settings Dialog */}
