@@ -12,8 +12,8 @@ import {
   ChatSkeleton
 } from './components/LoadingSkeletons';
 
-// Import MarkdownRenderer directly to avoid lazy loading issues
-import MarkdownRenderer from './components/MarkdownRenderer';
+// Import SimpleMarkdownRenderer to avoid dependency issues
+import SimpleMarkdownRenderer from './components/SimpleMarkdownRenderer';
 
 // Lazy load other heavy components to reduce initial bundle size
 const ThemeSwitcher = React.lazy(() => import('./components/ThemeSwitcher'));
@@ -728,7 +728,7 @@ function App() {
                     <ErrorBoundary>
                       {msg.content ? (
                         msg.role === "assistant" ? (
-                          <MarkdownRenderer content={msg.content} />
+                          <SimpleMarkdownRenderer content={msg.content} />
                         ) : (
                           <div className="whitespace-pre-wrap break-words">
                             {msg.content}
