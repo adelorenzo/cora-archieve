@@ -38,7 +38,7 @@ test.describe('Cross-Browser Compatibility', () => {
 
   test.beforeEach(async ({ page }) => {
     // Navigate to the app
-    await page.goto('http://localhost:8000');
+    await page.goto('http://localhost:8001');
 
     // Wait for initial load
     await page.waitForSelector('header', { timeout: 10000 });
@@ -296,7 +296,7 @@ test.describe('Mobile Browser Compatibility', () => {
     });
     const page = await context.newPage();
 
-    await page.goto('http://localhost:8000');
+    await page.goto('http://localhost:8001');
     await page.waitForTimeout(3000);
 
     // Check if app loads on mobile
@@ -315,7 +315,7 @@ test.describe('Mobile Browser Compatibility', () => {
     });
     const page = await context.newPage();
 
-    await page.goto('http://localhost:8000');
+    await page.goto('http://localhost:8001');
     await page.waitForTimeout(3000);
 
     // Check if app loads on mobile

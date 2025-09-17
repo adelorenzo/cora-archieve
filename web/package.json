@@ -32,6 +32,7 @@
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@tailwindcss/postcss": "^4.1.13",
+    "@wllama/wllama": "^2.3.5",
     "@xenova/transformers": "^2.17.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

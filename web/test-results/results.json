@@ -48,7 +48,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/test-results",
@@ -64,7 +64,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       }
     ],
     "shard": null,
@@ -94,12 +94,12 @@
           "column": 6,
           "specs": [
             {
-              "title": "WebAssembly Support (All Browsers)",
+              "title": "Browser Detection and Runtime Selection",
               "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 60000,
+                  "timeout": 30000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "firefox",
@@ -109,12 +109,16 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1928,
+                      "duration": 5782,
                       "errors": [],
-                      "stdout": [],
+                      "stdout": [
+                        {
+                          "text": "Testing browser: firefox\n"
+                        }
+                      ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-09-17T08:34:40.665Z",
+                      "startTime": "2025-09-17T14:12:50.752Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -122,9 +126,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "6b678d98a71d40d7c30a-a7657b37f6e944a40f6e",
+              "id": "6b678d98a71d40d7c30a-5fd4d80f68f271d24c51",
               "file": "browser-compatibility.spec.js",
-              "line": 94,
+              "line": 47,
               "column": 3
             }
           ]
@@ -134,8 +138,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-09-17T08:34:40.364Z",
-    "duration": 3218.035,
+    "startTime": "2025-09-17T14:12:50.354Z",
+    "duration": 7155.095,
     "expected": 1,
     "skipped": 0,
     "unexpected": 0,
