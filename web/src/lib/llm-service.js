@@ -126,7 +126,7 @@ class LLMService {
     
     // Final fallback to ensure we have a model
     if (!selectedModel) {
-      selectedModel = CURATED_MODELS[0].model_id; // SmolLM2-135M as ultimate fallback
+      selectedModel = CURATED_MODELS[0].model_id; // DeepSeek R1 7B as ultimate fallback
     }
     
     // Preload model assets for optimization
@@ -138,13 +138,16 @@ class LLMService {
     
     console.log('Initializing with model:', selectedModel);
     
+    // Use the prebuilt app config which contains all available models
+    const appConfig = webllm.prebuiltAppConfig;
+
     const engineConfig = {
       initProgressCallback: (report) => {
         if (this.initCallback) {
           this.initCallback(report.text || "Loading model...");
         }
       },
-      appConfig: webllm.prebuiltAppConfig,
+      appConfig: appConfig,
       logLevel: "INFO",
       // Disable service worker cache to avoid network errors in development
       useWebWorker: false,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare, Copy, Check } from 'lucide-react';
+import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare, Copy, Check, RefreshCw } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Badge } from './components/ui/badge';
@@ -76,6 +76,8 @@ function App() {
   const [detectedUrls, setDetectedUrls] = useState([]);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [regeneratingIndex, setRegeneratingIndex] = useState(null);
+  const [responseHistory, setResponseHistory] = useState({}); // Store previous responses by message index
   const messagesEndRef = useRef(null);
 
   // Helper functions for conversation management
@@ -134,6 +136,79 @@ function App() {
       }, 2000);
     } catch (err) {
       console.error('Failed to copy text:', err);
+    }
+  };
+
+  const handleRegenerateMessage = async (index) => {
+    // Find the user message that prompted this response
+    const messages = activeConversation?.messages || [];
+    if (index === 0 || messages[index - 1]?.role !== 'user') return;
+
+    const userMessage = messages[index - 1];
+    const currentResponse = messages[index];
+
+    // Store current response in history if not already stored
+    if (!responseHistory[index]) {
+      setResponseHistory(prev => ({
+        ...prev,
+        [index]: [currentResponse.content]
+      }));
+    } else if (!responseHistory[index].includes(currentResponse.content)) {
+      setResponseHistory(prev => ({
+        ...prev,
+        [index]: [...prev[index], currentResponse.content]
+      }));
+    }
+
+    setRegeneratingIndex(index);
+    setIsLoading(true);
+
+    try {
+      // Remove the AI response we're regenerating
+      const conversationId = activeConversation.id;
+      const conversation = conversationManager.getConversation(conversationId);
+      conversation.messages = conversation.messages.slice(0, index);
+      conversationManager.save();
+      setActiveConversation(conversationManager.getActiveConversation());
+
+      // Add empty message for streaming
+      addMessageToConversation({ role: 'assistant', content: '' });
+
+      // Generate new response using streaming
+      const systemMessages = getSystemMessages(false, false);
+      const allMessages = [
+        ...systemMessages,
+        ...conversation.messages.slice(0, index - 1), // Previous context
+        userMessage
+      ];
+
+      let fullResponse = '';
+      const stream = llmService.chat(allMessages, {
+        temperature: temperature,
+        max_tokens: 2048
+      });
+
+      for await (const delta of stream) {
+        // Handle regular content like normal streaming
+        if (delta.content) {
+          fullResponse += delta.content;
+          updateLastMessage({ content: fullResponse });
+        }
+      }
+
+      // Store new response in history
+      setResponseHistory(prev => ({
+        ...prev,
+        [index]: [...(prev[index] || []), fullResponse]
+      }));
+    } catch (error) {
+      console.error('[RegenerateMessage] Error:', error);
+      updateLastMessage({
+        content: `Error regenerating response: ${error.message}. Please try again.`
+      });
+    } finally {
+      setIsLoading(false);
+      setRegeneratingIndex(null);
     }
   };
 
@@ -785,22 +860,48 @@ function App() {
                     </ErrorBoundary>
                   </div>
                   {msg.content && (
-                    <button
-                      onClick={() => handleCopyMessage(msg.content, idx)}
-                      className={cn(
-                        "opacity-0 group-hover:opacity-100 transition-opacity duration-200",
-                        "text-muted-foreground hover:text-foreground",
-                        "p-1.5 rounded-lg hover:bg-secondary/50",
-                        msg.role === "user" ? "mr-2" : "ml-2"
+                    <div className={cn(
+                      "flex gap-1",
+                      msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                    )}>
+                      <button
+                        onClick={() => handleCopyMessage(msg.content, idx)}
+                        className={cn(
+                          "opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+                          "text-muted-foreground hover:text-foreground",
+                          "p-1.5 rounded-lg hover:bg-secondary/50"
+                        )}
+                        title="Copy to clipboard"
+                      >
+                        {copiedIndex === idx ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                      {msg.role === "assistant" && (
+                        <button
+                          onClick={() => handleRegenerateMessage(idx)}
+                          disabled={regeneratingIndex === idx || isLoading}
+                          className={cn(
+                            "opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+                            "text-muted-foreground hover:text-foreground",
+                            "p-1.5 rounded-lg hover:bg-secondary/50",
+                            "disabled:opacity-50 disabled:cursor-not-allowed"
+                          )}
+                          title={responseHistory[idx]?.length > 1
+                            ? `Regenerate (${responseHistory[idx].length} versions)`
+                            : "Regenerate response"}
+                        >
+                          <RefreshCw
+                            className={cn(
+                              "h-3 w-3",
+                              regeneratingIndex === idx && "animate-spin"
+                            )}
+                          />
+                        </button>
                       )}
-                      title="Copy to clipboard"
-                    >
-                      {copiedIndex === idx ? (
-                        <Check className="h-3 w-3" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </button>
+                    </div>
                   )}
                 </div>
               ))
