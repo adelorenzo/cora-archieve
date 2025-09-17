@@ -1,7 +1,7 @@
 # Cora - AI Assistant Development Plan
 **Project Codename:** Cora
 **Version:** 2.0.0 (from WebLLM v1.1.0)
-**Status:** IN PROGRESS - Sprint 6 Completed ✅
+**Status:** IN PROGRESS - Sprint 7 Starting
 **Date:** September 12, 2025
 **Last Updated:** January 16, 2025  
 
@@ -152,39 +152,41 @@ Transform the current WebLLM chat application into **Cora**, an advanced AI assi
 
 ---
 
-### Sprint 6: RAG Enhancement & Performance ✅ COMPLETED
+### Sprint 6: Performance & Stability ✅ COMPLETED
 **Start Date:** December 13, 2025
 **End Date:** January 16, 2025
 
 #### Deliverables:
-- [x] Fix RAG engine issues
-- [x] Advanced RAG with semantic chunking
-- [x] Improved document parsing and processing
-- [x] Vector search optimization
 - [x] Performance optimizations
-- [ ] Mobile app packaging (PWA improvements) - moved to Sprint 7
 - [x] Memory usage optimization
+- [x] Code cleanup and refactoring
+- [x] Removed problematic RAG implementation (causing crashes)
+- [ ] Mobile app packaging (PWA improvements) - moved to Sprint 7
 - [ ] Loading time improvements - moved to Sprint 7
 
 #### Success Metrics:
-- ✅ RAG accuracy improved to >90% (semantic embeddings)
-- ✅ Document processing 2x faster (optimized vector index)
-- ✅ Memory usage reduced by 30% (cache optimization)
+- ✅ App stability restored (no more crashes)
+- ✅ Memory usage reduced
+- ✅ Cleaner codebase without experimental features
 - Mobile PWA score >95 (deferred)
 - Initial load time <2s (deferred)
 
-#### Achievements:
-- Implemented Transformers.js with all-MiniLM-L6-v2 model
-- Created optimized vector index with k-means clustering
-- Reduced search complexity from O(n) to O(log n)
-- Added automatic memory monitoring and cleanup
-- Semantic text chunking with overlap
+#### Important Notes:
+- RAG feature was removed due to persistent browser memory crashes
+- RAG implementation moved to Sprint 7 for complete redesign
+- Focus shifted to app stability and performance
 
 ---
 
 ### Future Sprints (Planned)
 
-### Sprint 7: Advanced Features 🚀 NEXT (3 weeks)
+### Sprint 7: RAG Redesign & Advanced Features 🚀 NEXT (4 weeks)
+- [ ] **RAG System Redesign** (Priority 1)
+  - [ ] New lightweight embedding approach
+  - [ ] Efficient vector storage without memory explosions
+  - [ ] Streaming document processing
+  - [ ] Better memory management
+  - [ ] Progressive indexing
 - [ ] PWA improvements and mobile optimization
 - [ ] Loading time improvements
 - [ ] Voice input/output capabilities
@@ -408,18 +410,18 @@ main                 # Production-ready code
 ## Progress Summary
 
 ### Completed Sprints (6/8)
-- ✅ **Sprint 1:** RAG Implementation - Full document management and vector search
+- ✅ **Sprint 1:** RAG Implementation - Initial implementation (later removed)
 - ✅ **Sprint 2:** Model Curation & Personas - 5 optimized models, 5 personas
 - ✅ **Sprint 3:** Web Search - SearXNG integration with function calling
 - ✅ **Sprint 4:** Settings Persistence - Complete localStorage implementation
 - ✅ **Sprint 5:** Chat Management - Multi-conversation support with export/import
-- ✅ **Sprint 6:** RAG Enhancement - Semantic embeddings and optimized vector search
+- ✅ **Sprint 6:** Performance & Stability - Removed problematic RAG, improved stability
 
 ### Current Status
-- **Active Sprint:** Sprint 7 - Advanced Features & PWA
+- **Active Sprint:** Sprint 7 - RAG Redesign & Advanced Features
 - **Completion Rate:** 75% (6 of 8 planned sprints)
-- **Key Achievement:** RAG system fully optimized with semantic embeddings
-- **Next Focus:** PWA improvements, voice features, and advanced templates
+- **Key Achievement:** App stability restored, clean codebase
+- **Next Focus:** Complete RAG redesign with proper memory management, PWA improvements
 
 ---
 
@@ -431,4 +433,4 @@ main                 # Production-ready code
 
 ---
 
-*This document represents the official development plan for Cora. Last updated after Sprint 6 completion with semantic embeddings and vector search optimization.*
+*This document represents the official development plan for Cora. Last updated after Sprint 6 completion - RAG removed due to stability issues, moved to Sprint 7 for redesign.*
