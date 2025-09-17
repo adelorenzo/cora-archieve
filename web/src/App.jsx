@@ -12,8 +12,10 @@ import {
   ChatSkeleton
 } from './components/LoadingSkeletons';
 
-// Lazy load heavy components to reduce initial bundle size
-const MarkdownRenderer = React.lazy(() => import('./components/MarkdownRenderer'));
+// Import MarkdownRenderer directly to avoid lazy loading issues
+import MarkdownRenderer from './components/MarkdownRenderer';
+
+// Lazy load other heavy components to reduce initial bundle size
 const ThemeSwitcher = React.lazy(() => import('./components/ThemeSwitcher'));
 const PersonaSelector = React.lazy(() => import('./components/PersonaSelector'));
 const ModelSelector = React.lazy(() => import('./components/ModelSelector'));
@@ -726,9 +728,7 @@ function App() {
                     <ErrorBoundary>
                       {msg.content ? (
                         msg.role === "assistant" ? (
-                          <React.Suspense fallback={<div className="animate-pulse">Loading...</div>}>
-                            <MarkdownRenderer content={msg.content} />
-                          </React.Suspense>
+                          <MarkdownRenderer content={msg.content} />
                         ) : (
                           <div className="whitespace-pre-wrap break-words">
                             {msg.content}
