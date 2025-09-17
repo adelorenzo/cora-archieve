@@ -3,12 +3,20 @@ import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageS
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Badge } from './components/ui/badge';
-import MarkdownRenderer from './components/MarkdownRenderer';
+// Essential components loaded immediately
 import ErrorBoundary from './components/ErrorBoundary';
-import ThemeSwitcher from './components/ThemeSwitcher';
-import PersonaSelector from './components/PersonaSelector';
-import ModelSelector from './components/ModelSelector';
-// Lazy load components to reduce initial bundle size
+import {
+  PersonaSelectorSkeleton,
+  ModelSelectorSkeleton,
+  ThemeSwitcherSkeleton,
+  ChatSkeleton
+} from './components/LoadingSkeletons';
+
+// Lazy load heavy components to reduce initial bundle size
+const MarkdownRenderer = React.lazy(() => import('./components/MarkdownRenderer'));
+const ThemeSwitcher = React.lazy(() => import('./components/ThemeSwitcher'));
+const PersonaSelector = React.lazy(() => import('./components/PersonaSelector'));
+const ModelSelector = React.lazy(() => import('./components/ModelSelector'));
 const ConversationSwitcher = React.lazy(() => import('./components/ConversationSwitcher'));
 import { useTheme } from './contexts/ThemeContext';
 import { usePersona } from './contexts/PersonaContext';
@@ -603,7 +611,9 @@ function App() {
             <span className="text-xs text-muted-foreground font-medium">100% Local • No Server • No Keys</span>
           </div>
           <div className="flex items-center gap-2">
-            <PersonaSelector />
+            <React.Suspense fallback={<PersonaSelectorSkeleton />}>
+              <PersonaSelector />
+            </React.Suspense>
 
             {/* Conversations Button */}
             <Button
@@ -616,7 +626,9 @@ function App() {
               <MessageSquare className="h-4 w-4" />
             </Button>
 
-            <ThemeSwitcher />
+            <React.Suspense fallback={<ThemeSwitcherSkeleton />}>
+              <ThemeSwitcher />
+            </React.Suspense>
             
             <Button
               variant="ghost"
@@ -639,11 +651,13 @@ function App() {
 
         {/* Status Bar */}
         <div className="relative z-50 px-6 py-2 bg-secondary/50 backdrop-blur-sm flex items-center gap-3 border-b border-border">
-          <ModelSelector 
-            currentModel={selectedModel}
-            onModelSelect={handleModelChange}
-            runtime={runtime}
-          />
+          <React.Suspense fallback={<ModelSelectorSkeleton />}>
+            <ModelSelector
+              currentModel={selectedModel}
+              onModelSelect={handleModelChange}
+              runtime={runtime}
+            />
+          </React.Suspense>
           <div className={cn(
             "px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-2 shadow-sm",
             runtime === "webgpu" ? "bg-green-500 text-white" : 
@@ -712,7 +726,9 @@ function App() {
                     <ErrorBoundary>
                       {msg.content ? (
                         msg.role === "assistant" ? (
-                          <MarkdownRenderer content={msg.content} />
+                          <React.Suspense fallback={<div className="animate-pulse">Loading...</div>}>
+                            <MarkdownRenderer content={msg.content} />
+                          </React.Suspense>
                         ) : (
                           <div className="whitespace-pre-wrap break-words">
                             {msg.content}

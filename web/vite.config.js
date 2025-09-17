@@ -11,7 +11,8 @@ export default defineConfig({
     // Optimize bundle size
     target: 'es2020',
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 800, // Increased for transformers chunk
+    chunkSizeWarningLimit: 800,
+    // Use esbuild for minification (faster than terser and included by default)
     // Address onnxruntime-web eval warnings
     commonjsOptions: {
       transformMixedEsModules: true,
@@ -23,31 +24,44 @@ export default defineConfig({
       // Manual chunk splitting for better code organization and lazy loading
       output: {
         manualChunks: (id) => {
-          // Group all transformers/embedding related code into separate chunk
-          if (id.includes('@xenova/transformers') || id.includes('onnxruntime')) {
-            return 'transformers';
+          // Split WebLLM into its own chunk (loaded on-demand)
+          if (id.includes('@mlc-ai/web-llm')) {
+            return 'webllm';
           }
-          
+
+          // Split wllama into its own chunk (loaded on-demand for fallback)
+          if (id.includes('@wllama/wllama')) {
+            return 'wllama';
+          }
+
           // Group PouchDB database modules together
-          if (id.includes('pouchdb') || id.includes('database')) {
+          if (id.includes('pouchdb')) {
             return 'database';
           }
-          
-          // Group UI component libraries
+
+          // Group UI component libraries (lazy loaded)
           if (id.includes('lucide-react') || id.includes('react-markdown') || id.includes('highlight.js')) {
             return 'ui-libs';
           }
-          
-          // React and core dependencies
-          if (id.includes('react') || id.includes('react-dom')) {
-            return 'react-vendor';
+
+          // Keep React separate for better caching
+          if (id.includes('node_modules/react-dom')) {
+            return 'react-dom';
           }
-          
-          // Other node_modules
+          if (id.includes('node_modules/react')) {
+            return 'react';
+          }
+
+          // Shadcn UI components
+          if (id.includes('radix-ui') || id.includes('@radix')) {
+            return 'radix-ui';
+          }
+
+          // Other vendor libraries
           if (id.includes('node_modules')) {
             return 'vendor';
           }
-          
+
           // Keep main bundle small
           return undefined;
         }
@@ -58,21 +72,18 @@ export default defineConfig({
   optimizeDeps: {
     // Pre-bundle only essential modules for browser compatibility
     include: [
-      'pouchdb-core',
-      'pouchdb-adapter-idb', 
-      'pouchdb-find',
       'react',
       'react-dom',
       'clsx',
       'class-variance-authority'
     ],
-    // Exclude large ML libraries and problematic Node.js modules
+    // Exclude large libraries for lazy loading
     exclude: [
-      '@xenova/transformers', // Lazy load for RAG features
-      'events',
-      'pouchdb-mapreduce',
-      'pouchdb-replication',
-      'pouchdb-utils'
+      '@mlc-ai/web-llm',  // Load on-demand
+      '@wllama/wllama',   // Load on-demand
+      'react-markdown',   // Lazy loaded
+      'highlight.js',     // Lazy loaded
+      'lucide-react'      // Lazy loaded
     ]
   },
   define: {

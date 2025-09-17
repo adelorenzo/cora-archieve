@@ -4,10 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cora - AI Assistant</title>
+
+  <!-- Preload critical resources -->
+  <link rel="preload" href="/src/main.jsx" as="script" crossorigin>
+  <link rel="modulepreload" href="/src/App.jsx">
+  <link rel="preload" href="/src/index.css" as="style">
+
+  <!-- Preconnect to CDNs -->
+  <link rel="preconnect" href="https://esm.run">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="dns-prefetch" href="https://unpkg.com">
+
+  <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <meta name="theme-color" content="#0f172a">
+
+  <!-- Performance hints -->
+  <meta name="description" content="Cora - Your local AI assistant with 100% privacy">
+  <meta name="keywords" content="AI, assistant, local, privacy, WebGPU, WASM">
 </head>
 <body>
   <div id="root"></div>

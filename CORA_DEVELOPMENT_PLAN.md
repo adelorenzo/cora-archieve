@@ -1,7 +1,7 @@
 # Cora - AI Assistant Development Plan
 **Project Codename:** Cora
 **Version:** 2.0.0 (from WebLLM v1.1.0)
-**Status:** IN PROGRESS - Sprint 7 Starting
+**Status:** IN PROGRESS - Sprint 6 Loading Optimizations
 **Date:** September 12, 2025
 **Last Updated:** January 16, 2025  
 
@@ -152,7 +152,7 @@ Transform the current WebLLM chat application into **Cora**, an advanced AI assi
 
 ---
 
-### Sprint 6: Performance & Stability ✅ COMPLETED
+### Sprint 6: Performance & Stability 🚀 IN PROGRESS
 **Start Date:** December 13, 2025
 **End Date:** January 16, 2025
 
@@ -161,8 +161,8 @@ Transform the current WebLLM chat application into **Cora**, an advanced AI assi
 - [x] Memory usage optimization
 - [x] Code cleanup and refactoring
 - [x] Removed problematic RAG implementation (causing crashes)
+- [ ] **Loading time improvements** - IN PROGRESS
 - [ ] Mobile app packaging (PWA improvements) - moved to Sprint 7
-- [ ] Loading time improvements - moved to Sprint 7
 
 #### Success Metrics:
 - ✅ App stability restored (no more crashes)
