@@ -352,7 +352,6 @@ class LLMService {
         if (tokenBuffer) {
           yield { content: tokenBuffer };
         }
-      }
       } catch (error) {
         // Handle function calling parse errors gracefully
         if (error.message?.includes('error encountered when parsing outputMessage for function calling')) {
