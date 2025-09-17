@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare } from 'lucide-react';
+import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare, Copy, Check } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Badge } from './components/ui/badge';
@@ -74,6 +74,8 @@ function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [showConversations, setShowConversations] = useState(false);
   const [detectedUrls, setDetectedUrls] = useState([]);
+  const [copiedIndex, setCopiedIndex] = useState(null);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Helper functions for conversation management
@@ -115,6 +117,26 @@ function App() {
     setActiveConversation(conversation);
     setShowConversations(false);
   };
+
+  const handleCopyMessage = async (content, index) => {
+    try {
+      // Extract text from message content (remove markdown formatting for copy)
+      const textContent = typeof content === 'string' ? content : content.toString();
+      await navigator.clipboard.writeText(textContent);
+
+      setCopiedIndex(index);
+      setShowCopyModal(true);
+
+      // Auto-hide modal after 2 seconds
+      setTimeout(() => {
+        setShowCopyModal(false);
+        setCopiedIndex(null);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
   const getSystemMessages = (includeToolInstructions = false, useManualFormat = false) => {
     const basePrompt = activePersonaData?.systemPrompt || "You are a concise, helpful assistant that runs 100% locally in the user's browser.";
     
@@ -599,6 +621,16 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+      {/* Copy to Clipboard Modal */}
+      {showCopyModal && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+          <div className="bg-card border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-2 animate-in fade-in-0 zoom-in-95 duration-200">
+            <Check className="h-4 w-4 text-green-500" />
+            <span className="text-sm font-medium text-foreground">Copied to clipboard!</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col h-full overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between px-6 py-4 bg-card backdrop-blur-md border-b border-border shadow-sm">
@@ -607,10 +639,19 @@ function App() {
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
               <div className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
             </div>
-            <h1 className="text-xl font-bold text-foreground">
-              Cora
-            </h1>
-            <span className="text-xs text-muted-foreground font-medium">100% Local • No Server • No Keys</span>
+            <div className="flex items-center gap-2">
+              <img
+                src="/icon-192.png"
+                alt="Cora"
+                className="w-8 h-8 rounded-lg shadow-sm"
+              />
+              <div className="flex flex-col">
+                <h1 className="text-xl font-bold text-foreground leading-tight">
+                  Cora
+                </h1>
+                <span className="text-xs text-muted-foreground font-medium">100% Local • No Server • No Keys</span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <React.Suspense fallback={<PersonaSelectorSkeleton />}>
@@ -715,8 +756,8 @@ function App() {
                 <div
                   key={idx}
                   className={cn(
-                    "flex",
-                    msg.role === "user" ? "justify-end" : "justify-start"
+                    "group flex flex-col gap-1",
+                    msg.role === "user" ? "items-end" : "items-start"
                   )}
                 >
                   <div
@@ -743,6 +784,24 @@ function App() {
                       )}
                     </ErrorBoundary>
                   </div>
+                  {msg.content && (
+                    <button
+                      onClick={() => handleCopyMessage(msg.content, idx)}
+                      className={cn(
+                        "opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+                        "text-muted-foreground hover:text-foreground",
+                        "p-1.5 rounded-lg hover:bg-secondary/50",
+                        msg.role === "user" ? "mr-2" : "ml-2"
+                      )}
+                      title="Copy to clipboard"
+                    >
+                      {copiedIndex === idx ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
                 </div>
               ))
             )}
