@@ -63,7 +63,7 @@ test.describe('Sprint 2 Requirements Validation', () => {
     
     // Take screenshot of initial state
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/initial-state.png',
+      path: './web/.playwright-mcp/initial-state.png',
       fullPage: true 
     });
     
@@ -97,7 +97,7 @@ test.describe('Sprint 2 Requirements Validation', () => {
     
     // Take screenshot of model selector opened
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/model-selector-open.png',
+      path: './web/.playwright-mcp/model-selector-open.png',
       fullPage: true 
     });
     
@@ -179,7 +179,7 @@ test.describe('Sprint 2 Requirements Validation', () => {
     
     // Take screenshot of chat working
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/basic-chat-test.png',
+      path: './web/.playwright-mcp/basic-chat-test.png',
       fullPage: true 
     });
     
@@ -239,7 +239,7 @@ test.describe('Sprint 2 Requirements Validation', () => {
     
     // Take screenshot of database features
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/database-features.png',
+      path: './web/.playwright-mcp/database-features.png',
       fullPage: true 
     });
     
@@ -269,7 +269,7 @@ test.describe('Sprint 2 Requirements Validation', () => {
           
           // Take screenshot of theme
           await page.screenshot({ 
-            path: `/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/${theme.toLowerCase()}-theme.png`
+            path: `./web/.playwright-mcp/${theme.toLowerCase()}-theme.png`
           });
           
           // Click theme switcher again for next theme
@@ -352,7 +352,7 @@ test.describe('Sprint 2 Requirements Validation', () => {
     
     // Take comprehensive screenshot
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/comprehensive-ui-test.png',
+      path: './web/.playwright-mcp/comprehensive-ui-test.png',
       fullPage: true 
     });
     

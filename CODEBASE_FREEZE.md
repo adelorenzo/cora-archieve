@@ -118,7 +118,7 @@ None - This is the initial production release.
 
 ### Git Information
 ```
-Repository: https://git.oe74.net/adelorenzo/webgpu-webllm-app
+Repository: https://git.oe74.net/adelorenzo/cora
 Branch: develop
 Commit: bcc7ac2
 Message: feat: Sprint 7 Complete - Production Ready v1.0.0

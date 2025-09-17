@@ -181,7 +181,7 @@ npm run build
 - ✅ Security scanning
 - ✅ Release automation
 
-View pipeline status: [Actions](https://git.oe74.net/adelorenzo/webgpu-webllm-app/actions)
+View pipeline status: [Actions](https://git.oe74.net/adelorenzo/cora/actions)
 
 ### Web Search Setup (Optional)
 ```bash

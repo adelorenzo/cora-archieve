@@ -24,7 +24,7 @@ export class TestHelpers {
    * Take a screenshot with standardized naming
    */
   static async takeScreenshot(page, name, fullPage = true) {
-    const path = `/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/${name}.png`;
+    const path = `./web/.playwright-mcp/${name}.png`;
     await page.screenshot({ path, fullPage });
     console.log(`Screenshot saved: ${name}.png`);
   }

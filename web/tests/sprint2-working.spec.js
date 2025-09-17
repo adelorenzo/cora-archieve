@@ -19,7 +19,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
     
     // Take screenshot of initial state
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/initial-state.png',
+      path: './web/.playwright-mcp/initial-state.png',
       fullPage: true 
     });
     
@@ -48,7 +48,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
     
     // Take screenshot of model selector
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/model-selector-open.png',
+      path: './web/.playwright-mcp/model-selector-open.png',
       fullPage: true 
     });
     
@@ -92,7 +92,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
       
       // Take screenshot after model selection
       await page.screenshot({ 
-        path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/model-selected.png',
+        path: './web/.playwright-mcp/model-selected.png',
         fullPage: true 
       });
       
@@ -130,7 +130,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
     
     // Take screenshot of chat with message
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/chat-with-message.png',
+      path: './web/.playwright-mcp/chat-with-message.png',
       fullPage: true 
     });
     
@@ -166,7 +166,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
     
     // Take screenshot of app under stress
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/error-handling.png',
+      path: './web/.playwright-mcp/error-handling.png',
       fullPage: true 
     });
     
@@ -202,7 +202,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
     
     // Take screenshot showing database features
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/database-features.png',
+      path: './web/.playwright-mcp/database-features.png',
       fullPage: true 
     });
     
@@ -239,7 +239,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
           
           // Take screenshot of theme
           await page.screenshot({ 
-            path: `/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/${theme.toLowerCase()}-theme.png`
+            path: `./web/.playwright-mcp/${theme.toLowerCase()}-theme.png`
           });
           
           // Switch back to theme selector for next theme
@@ -330,7 +330,7 @@ test.describe('Sprint 2 Requirements - Working Tests', () => {
     
     // Take final comprehensive screenshot
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/comprehensive-ui-test.png',
+      path: './web/.playwright-mcp/comprehensive-ui-test.png',
       fullPage: true 
     });
     

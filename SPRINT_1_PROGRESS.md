@@ -118,7 +118,7 @@ await updateDocument(id, newData);
 ## 🚀 Repository Status
 
 **Branch:** `develop` (7 commits ahead of `origin/develop`)  
-**Remote:** https://git.oe74.net/adelorenzo/webgpu-webllm-app.git  
+**Remote:** https://git.oe74.net/adelorenzo/cora.git  
 **Status:** All changes pushed successfully ✅  
 
 **Commit History:**

@@ -91,7 +91,7 @@ test.describe('Manual Verification Guide', () => {
 
     // Take screenshot with instructions
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/webgpu-verification-guide.png',
+      path: './web/.playwright-mcp/webgpu-verification-guide.png',
       fullPage: true 
     });
 
@@ -180,7 +180,7 @@ test.describe('Manual Verification Guide', () => {
     });
 
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/theme-verification-guide.png',
+      path: './web/.playwright-mcp/theme-verification-guide.png',
       fullPage: true 
     });
 
@@ -204,7 +204,7 @@ test.describe('Manual Verification Guide', () => {
 
     // Take final comprehensive screenshot
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/final-sprint2-verification.png',
+      path: './web/.playwright-mcp/final-sprint2-verification.png',
       fullPage: true 
     });
 

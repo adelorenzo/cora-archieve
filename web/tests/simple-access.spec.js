@@ -10,7 +10,7 @@ test.describe('Simple App Access Test', () => {
     
     // Take a screenshot to see what's happening
     await page.screenshot({ 
-      path: '/Users/adelorenzo/Documents/repos/webgpu-webllm-app/web/.playwright-mcp/simple-access.png',
+      path: './web/.playwright-mcp/simple-access.png',
       fullPage: true 
     });
     
