@@ -99,7 +99,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: git.oe74.net/adelorenzo/webgpu-webllm-app/cora-ai
+          images: git.oe74.net/adelorenzo/cora-ai
           tags: |
             type=ref,event=branch
             type=ref,event=pr

@@ -39,7 +39,7 @@ services:
 
   # Registry image service (when available)
   cora-registry:
-    image: git.oe74.net/adelorenzo/webgpu-webllm-app/cora-ai:latest
+    image: git.oe74.net/adelorenzo/cora-ai:latest
     ports:
       - "8002:8000"
     environment:
