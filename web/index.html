@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cora - AI Assistant</title>
 
-  <!-- Modulepreload for ES modules -->
-  <link rel="modulepreload" href="/src/App.jsx">
-
   <!-- Preconnect to CDNs -->
   <link rel="preconnect" href="https://esm.run">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -26,6 +23,46 @@
 </head>
 <body>
   <div id="root"></div>
+  <!-- Essential polyfills for browser compatibility -->
+  <script>
+    // Ensure globalThis exists
+    if (typeof globalThis === 'undefined') {
+      window.globalThis = window;
+    }
+
+    // Basic performance API polyfill
+    if (!globalThis.performance || !globalThis.performance.now) {
+      globalThis.performance = globalThis.performance || {};
+      const startTime = Date.now();
+      globalThis.performance.now = function() {
+        return Date.now() - startTime;
+      };
+    }
+
+    // Basic process polyfill
+    window.process = window.process || { env: {} };
+    globalThis.process = window.process;
+
+    // Define ALL helpers globally for ES modules
+    globalThis.__defProp = Object.defineProperty;
+    globalThis.__name = function(target, value) {
+      return globalThis.__defProp(target, "name", { value: value, configurable: true });
+    };
+    globalThis.__defNormalProp = function(obj, key, value) {
+      if (key in obj) {
+        return globalThis.__defProp(obj, key, {
+          enumerable: true,
+          configurable: true,
+          writable: true,
+          value: value
+        });
+      }
+      return obj[key] = value;
+    };
+    globalThis.__publicField = function(obj, key, value) {
+      return globalThis.__defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+    };
+  </script>
   <script type="module" src="/src/main.jsx"></script>
   <script>
     // Only register service worker in production (detect by checking if Vite dev server is running)

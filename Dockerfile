@@ -1,13 +1,7 @@
 # Multi-stage Dockerfile for Cora AI Assistant
-# Optimized for small size and security
+# v1.3.0 - Fixed MIME types with proper nginx mime.types
 
-# Stage 1: Dependencies
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY web/package*.json ./
-RUN npm ci --only=production
-
-# Stage 2: Build
+# Stage 1: Build
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY web/package*.json ./
@@ -15,69 +9,70 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-# Stage 3: Production
-FROM nginx:alpine-slim AS production
+# Stage 2: Production
+FROM nginx:alpine
 
-# Install necessary tools for health checks
-RUN apk add --no-cache curl
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
 
 # Copy built application
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create default nginx config
-RUN if [ ! -f /etc/nginx/nginx.conf ]; then \
-    echo 'server { \
-        listen 8000; \
-        server_name localhost; \
-        root /usr/share/nginx/html; \
-        index index.html; \
-        \
-        # Security headers \
-        add_header X-Frame-Options "SAMEORIGIN" always; \
-        add_header X-Content-Type-Options "nosniff" always; \
-        add_header X-XSS-Protection "1; mode=block" always; \
-        \
-        # CSP for WebGPU and WASM \
-        add_header Content-Security-Policy "default-src '\''self'\''; script-src '\''self'\'' '\''wasm-unsafe-eval'\''; style-src '\''self'\'' '\''unsafe-inline'\''; img-src '\''self'\'' data: blob:; connect-src '\''self'\'' https://cdn.jsdelivr.net https://huggingface.co;" always; \
-        \
-        # WASM MIME type \
-        location ~ \.wasm$ { \
-            add_header Content-Type application/wasm; \
-        } \
-        \
-        # SPA routing \
-        location / { \
-            try_files $uri $uri/ /index.html; \
-        } \
-        \
-        # Compression \
-        gzip on; \
-        gzip_vary on; \
-        gzip_min_length 1024; \
-        gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json application/wasm; \
-    }' > /etc/nginx/conf.d/default.conf; \
-    fi
+# Create custom MIME types configuration
+RUN cat > /etc/nginx/mime.types << 'EOF'
+types {
+    text/html                             html htm shtml;
+    text/css                              css;
+    text/xml                              xml;
+    image/gif                             gif;
+    image/jpeg                            jpeg jpg;
+    application/javascript                js mjs jsx;
+    application/json                      json;
+    application/wasm                      wasm;
+    text/plain                            txt;
+    image/png                             png;
+    image/svg+xml                         svg svgz;
+    image/webp                            webp;
+    image/x-icon                          ico;
+    font/woff                             woff;
+    font/woff2                            woff2;
+    application/font-woff                 woff;
+    application/x-font-ttf                ttf;
+    font/opentype                         otf;
+    application/octet-stream              bin exe dll;
+    application/octet-stream              deb;
+    application/octet-stream              dmg;
+    application/octet-stream              iso img;
+    application/octet-stream              msi msp msm;
+}
+EOF
 
-# Set correct permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid
+# Create nginx server configuration
+RUN cat > /etc/nginx/conf.d/default.conf << 'EOF'
+server {
+    listen 8000;
+    listen [::]:8000;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
 
-# Expose port
+    # SPA routing
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/json application/wasm;
+}
+EOF
+
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8000/ || exit 1
 
-# Switch to non-root user
-USER nginx
-
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
