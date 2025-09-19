@@ -10,7 +10,10 @@ services:
       - ./web:/app/web:ro
     environment:
       - NODE_ENV=development
-      - SEARXNG_URL=http://searxng:8080
+      - SEARXNG_URL=${SEARXNG_URL:-http://searxng-cora:8080}
+      - TXTAI_URL=${TXTAI_URL:-http://txtai-cora:8001}
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -18,6 +21,9 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    depends_on:
+      - searxng-cora
+      - txtai-cora
 
   # Production service
   cora-prod:
@@ -26,7 +32,10 @@ services:
       - "8001:8000"
     environment:
       - NODE_ENV=production
-      - SEARXNG_URL=http://searxng:8080
+      - SEARXNG_URL=${SEARXNG_URL:-http://searxng-cora:8080}
+      - TXTAI_URL=${TXTAI_URL:-http://txtai-cora:8001}
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -34,6 +43,9 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    depends_on:
+      - searxng-cora
+      - txtai-cora
     profiles:
       - production
 
@@ -44,7 +56,10 @@ services:
       - "8002:8000"
     environment:
       - NODE_ENV=production
-      - SEARXNG_URL=http://searxng:8080
+      - SEARXNG_URL=${SEARXNG_URL:-http://searxng-cora:8080}
+      - TXTAI_URL=${TXTAI_URL:-http://txtai-cora:8001}
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -52,21 +67,46 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    depends_on:
+      - searxng-cora
+      - txtai-cora
     profiles:
       - registry
 
   # SearXNG service - internal only, no ports exposed
-  searxng:
+  searxng-cora:
     image: searxng/searxng:latest
-    container_name: searxng
+    container_name: searxng-cora
     # No ports exposed - only accessible via Docker network
     environment:
-      - SEARXNG_BASE_URL=http://searxng:8080/
+      - SEARXNG_BASE_URL=http://searxng-cora:8080/
       - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY:-ultrasecretkey}
     volumes:
       - searxng-data:/etc/searxng
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # txtai RAG service - internal only, no ports exposed
+  txtai-cora:
+    build:
+      context: ./txtai
+      dockerfile: Dockerfile
+    container_name: txtai-cora
+    # No ports exposed - only accessible via Docker network
+    environment:
+      - TXTAI_API_KEY=${TXTAI_API_KEY:-}
+      - MAX_WORKERS=4
+    volumes:
+      - txtai-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -81,3 +121,4 @@ networks:
 
 volumes:
   searxng-data:
+  txtai-data:

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare, Copy, Check, RefreshCw, Download, FileText, FileSpreadsheet, AlignLeft, Activity } from 'lucide-react';
+import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare, Copy, Check, RefreshCw, Download, FileText, FileSpreadsheet, AlignLeft, Activity, BookOpen } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
 import { Badge } from './components/ui/badge';
+import { Switch } from './components/ui/switch';
+import { Label } from './components/ui/label';
 // Essential components loaded immediately
 import ErrorBoundary from './components/ErrorBoundary';
 import {
@@ -32,10 +34,13 @@ import { exportConversation } from './lib/export-utils';
 import ExportDropdown from './components/ExportDropdown';
 import { cn } from './lib/utils';
 import { SkipToContent } from './components/AccessibilityProvider';
+import ragService from './lib/rag-service';
 // Performance monitor will be imported dynamically
 
 // Lazy load performance dashboard
 const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDashboard'));
+// Lazy load document upload
+const DocumentUpload = React.lazy(() => import('./components/DocumentUpload'));
 
 function App() {
   const { currentTheme } = useTheme();
@@ -93,6 +98,8 @@ function App() {
   const [responseHistory, setResponseHistory] = useState({}); // Store previous responses by message index
   const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
   const [performanceMonitor, setPerformanceMonitor] = useState(null);
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [ragDocuments, setRagDocuments] = useState([]);
   const messagesEndRef = useRef(null);
 
   // Format timestamp for display
@@ -315,6 +322,18 @@ function App() {
     performanceOptimizer.trackInteraction('app-start');
     console.log('[App] Performance tracking started');
 
+    // Initialize RAG service
+    ragService.initialize().then(() => {
+      console.log('[App] RAG service initialized');
+      // Load existing documents
+      ragService.getDocuments().then(docs => {
+        setRagDocuments(docs);
+        console.log(`[App] Loaded ${docs.length} documents`);
+      });
+    }).catch(error => {
+      console.warn('[App] RAG service initialization failed:', error);
+    });
+
     // Start performance monitoring
     setTimeout(() => {
       console.log('[App] Starting critical component preload...');
@@ -456,6 +475,25 @@ function App() {
     // Add user message to conversation
     addMessageToConversation(userMessage);
     
+    // Check for RAG context if enabled
+    let ragContext = '';
+    if (ragEnabled && ragDocuments.length > 0) {
+      try {
+        console.log('[App] Searching documents for relevant context...');
+        const searchResults = await ragService.search(userQuery, 3, 0.3);
+
+        if (searchResults.length > 0) {
+          console.log(`[App] Found ${searchResults.length} relevant document chunks`);
+          ragContext = '\n\n### Relevant Document Context:\n' +
+            searchResults.map((result, idx) =>
+              `${idx + 1}. ${result.text} (Score: ${result.score.toFixed(2)})`
+            ).join('\n\n');
+        }
+      } catch (error) {
+        console.error('[App] RAG search failed:', error);
+      }
+    }
+
     // Check for URLs and smart fetch if detected
     let webContext = '';
     if (smartFetchService.shouldFetchUrls(userQuery)) {
@@ -539,12 +577,12 @@ function App() {
         useManualFunctionCalling
       );
       
-      // Add web context if available
+      // Add web context and RAG context if available
       let enhancedUserMessage = userMessage;
-      if (webContext) {
+      if (webContext || ragContext) {
         enhancedUserMessage = {
           role: 'user',
-          content: `${userMessage.content}\n\n${webContext}`
+          content: `${userMessage.content}${ragContext}${webContext ? '\n\n' + webContext : ''}`
         };
       }
       
@@ -826,6 +864,33 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Document Upload */}
+            <React.Suspense fallback={
+              <Button variant="outline" size="icon" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </Button>
+            }>
+              <DocumentUpload
+                onDocumentsChange={(docs) => {
+                  setRagDocuments(docs);
+                  console.log(`[App] Documents updated: ${docs.length}`);
+                }}
+              />
+            </React.Suspense>
+
+            {/* RAG Toggle */}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-secondary/50">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <Switch
+                checked={ragEnabled}
+                onCheckedChange={setRagEnabled}
+                className="data-[state=checked]:bg-primary"
+              />
+              <span className="text-xs font-medium text-muted-foreground">
+                RAG {ragDocuments.length > 0 ? `(${ragDocuments.length})` : ''}
+              </span>
+            </div>
+
             <React.Suspense fallback={<PersonaSelectorSkeleton />}>
               <PersonaSelector />
             </React.Suspense>

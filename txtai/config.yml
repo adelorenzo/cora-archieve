@@ -1,0 +1,25 @@
+# txtai configuration for Cora RAG
+embeddings:
+  path: sentence-transformers/all-MiniLM-L6-v2
+  content: true
+  format: json
+
+segmentation:
+  sentences: true
+  lines: false
+  paragraphs: false
+  join: false
+  minlength: 20
+
+api:
+  host: 0.0.0.0
+  port: 8001
+  cors: true
+
+# Storage configuration
+storage:
+  path: /app/data
+
+# Performance settings
+workers: 4
+batch: 32
