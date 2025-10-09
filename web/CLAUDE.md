@@ -6,14 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a modern React-based browser LLM application that runs entirely client-side. It uses WebLLM with WebGPU as the primary runtime, with automatic fallback to WASM (via wllama) when WebGPU is unavailable.
 
-**Latest Status (Sprint 8 Complete)**:
-- ✅ Critical production build fixes implemented
-- ✅ Downgraded React 19 to React 18 for scheduler compatibility
-- ✅ Fixed JavaScript minification issues breaking module resolution
-- ✅ Resolved "Cannot set properties of undefined" errors in production
-- ✅ App now builds and runs correctly when served via nginx in Docker
-- ✅ Successfully containerized and pushed to Gitea registry
-- ✅ 24+ hour production build issue resolved
+**Latest Status (Sprint 9 Complete)**:
+- ✅ RAG (Library) feature fully functional with txtai backend
+- ✅ Fixed txtai `/search` endpoint (replaced old app.py with app_simple.py)
+- ✅ Added missing `txtai[api]` dependency to Dockerfile
+- ✅ Fixed Python syntax error in global variable declaration
+- ✅ Semantic search working with sentence-transformers/all-MiniLM-L6-v2
+- ✅ Document upload and embedding generation operational
+- ✅ Critical production build fixes implemented (Sprint 8)
 - ✅ Stable production deployment achieved
 
 ## Development Commands
@@ -28,7 +28,7 @@ npm run build
 # Preview production build
 npm run preview
 
-# Access development server at: http://localhost:8000
+# Access development server at: http://localhost:5173
 ```
 
 ## Architecture
@@ -74,9 +74,18 @@ npm run preview
    - Loads when WebGPU unavailable
    - Uses tiny GGUF model (stories260K) for quick demo
 
-6. **Removed Components** (Sprint 6)
-   - ~~RAG/Embeddings~~ - Removed due to memory crashes
-   - ~~react-markdown~~ - Replaced with SimpleMarkdownRenderer
+6. **src/lib/rag-service.js** - RAG service (Sprint 9)
+   - Document processing and chunking
+   - txtai backend integration for semantic search
+   - PouchDB for local document storage
+   - Automatic context injection when Library toggle enabled
+
+7. **txtai/** - Backend RAG service
+   - FastAPI service with txtai embeddings
+   - Semantic search via sentence-transformers/all-MiniLM-L6-v2
+   - Supports PDF, DOCX, XLSX, TXT, MD, HTML, CSV
+   - `/search` endpoint for similarity search
+   - `/process/file` endpoint for document upload
 
 ### External Dependencies (CDN)
 
@@ -100,6 +109,7 @@ npm run preview
 - **Responsive Design**: Desktop and mobile optimized
 - **Streaming UI**: Real-time message updates during LLM generation
 - **Runtime Status**: WebGPU/WASM indicators with automatic fallback
+- **RAG/Library**: Upload documents and ask questions with automatic semantic search context injection
 
 ## Testing Considerations
 
@@ -115,3 +125,24 @@ npm run preview
 - Default WASM fallback uses tiny stories260K.gguf
 - Models cached by Service Worker for faster reloads
 - Temperature and other parameters configurable via settings
+
+## RAG/Library Feature
+
+**How It Works**:
+1. Upload documents via document icon (supports PDF, DOCX, XLSX, TXT, MD, HTML, CSV)
+2. Documents are processed by txtai backend into semantic chunks
+3. Toggle Library switch ON to enable RAG
+4. Ask questions normally - no special syntax required
+5. System automatically searches documents for relevant context (similarity threshold 0.3)
+6. Top 3 relevant chunks are injected into the prompt
+7. LLM responds using document context
+
+**Backend**: txtai FastAPI service on port 8001
+- Endpoint: `POST /search` - Semantic similarity search
+- Endpoint: `POST /process/file` - Document upload and chunking
+- Model: sentence-transformers/all-MiniLM-L6-v2
+- Storage: In-memory (resets on container restart)
+
+**Known Issues**:
+- Documents must be re-uploaded after container restart (no persistent storage yet)
+- IPv6 connection issues - use IPv4 (127.0.0.1) instead of localhost if needed
