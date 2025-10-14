@@ -11,8 +11,11 @@ This is a modern React-based browser LLM application that runs entirely client-s
 - ✅ DuckDuckGo search integration for desktop (no backend dependency)
 - ✅ RAG UI elements hidden in desktop mode
 - ✅ Tauri environment detection implemented
+- ✅ Local data persistence (TauriStorage abstraction layer)
+  - Browser mode: localStorage
+  - Desktop mode: file system via Tauri APIs
+  - Conversations and settings persist across restarts
 - ⏳ App icon update pending
-- ⏳ Local data persistence via Tauri commands pending
 - ⏳ Native menu bar and keyboard shortcuts pending
 
 **Sprint 9 Complete**:

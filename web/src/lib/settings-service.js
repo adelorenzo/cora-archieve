@@ -1,7 +1,9 @@
 /**
  * Settings Persistence Service
- * Manages user preferences across sessions using localStorage
+ * Manages user preferences across sessions using TauriStorage (localStorage or file system)
  */
+
+import tauriStorage from './tauri-storage.js';
 
 class SettingsService {
   constructor() {
@@ -18,39 +20,61 @@ class SettingsService {
       chatHistory: [],
       lastUsed: Date.now()
     };
-    
-    this.settings = this.load();
+
+    this.settings = { ...this.DEFAULT_SETTINGS };
     this.listeners = new Set();
+    this.initialized = false;
+
+    // Initialize asynchronously
+    this.initialize();
   }
 
   /**
-   * Load settings from localStorage
+   * Initialize storage and load settings
+   */
+  async initialize() {
+    try {
+      await tauriStorage.initialize();
+      await this.load();
+      this.initialized = true;
+      console.log('[SettingsService] Initialized');
+    } catch (error) {
+      console.error('[SettingsService] Initialization failed:', error);
+    }
+  }
+
+  /**
+   * Load settings from storage
    * @returns {Object} Settings object
    */
-  load() {
+  async load() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = await tauriStorage.getItem(this.STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         // Merge with defaults to ensure all keys exist
-        return { ...this.DEFAULT_SETTINGS, ...parsed };
+        this.settings = { ...this.DEFAULT_SETTINGS, ...parsed };
+        return this.settings;
       }
     } catch (error) {
       console.warn('Failed to load settings:', error);
     }
-    return { ...this.DEFAULT_SETTINGS };
+    this.settings = { ...this.DEFAULT_SETTINGS };
+    return this.settings;
   }
 
   /**
-   * Save settings to localStorage
-   * @returns {boolean} Success status
+   * Save settings to storage
+   * @returns {Promise<boolean>} Success status
    */
-  save() {
+  async save() {
     try {
       this.settings.lastUsed = Date.now();
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.settings));
-      this.notifyListeners();
-      return true;
+      const success = await tauriStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.settings));
+      if (success) {
+        this.notifyListeners();
+      }
+      return success;
     } catch (error) {
       console.error('Failed to save settings:', error);
       return false;
@@ -98,10 +122,10 @@ class SettingsService {
   }
 
   /**
-   * Clear all settings from localStorage
+   * Clear all settings from storage
    */
-  clear() {
-    localStorage.removeItem(this.STORAGE_KEY);
+  async clear() {
+    await tauriStorage.removeItem(this.STORAGE_KEY);
     this.settings = { ...this.DEFAULT_SETTINGS };
     this.notifyListeners();
   }

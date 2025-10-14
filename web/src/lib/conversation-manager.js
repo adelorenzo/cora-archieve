@@ -4,6 +4,7 @@
  */
 
 import settingsService from './settings-service.js';
+import tauriStorage from './tauri-storage.js';
 
 class ConversationManager {
   constructor() {
@@ -12,19 +13,36 @@ class ConversationManager {
     this.activeConversationId = null;
     this.listeners = new Set();
     this.nextId = 1;
-    
-    this.load();
+    this.initialized = false;
+
+    // Initialize asynchronously
+    this.initialize();
   }
 
   /**
-   * Load conversations from localStorage
+   * Initialize storage and load conversations
    */
-  load() {
+  async initialize() {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      await tauriStorage.initialize();
+      await this.load();
+      this.initialized = true;
+      console.log('[ConversationManager] Initialized');
+    } catch (error) {
+      console.error('[ConversationManager] Initialization failed:', error);
+      this.createConversation('New Chat');
+    }
+  }
+
+  /**
+   * Load conversations from storage
+   */
+  async load() {
+    try {
+      const stored = await tauriStorage.getItem(this.STORAGE_KEY);
       if (stored) {
         const data = JSON.parse(stored);
-        
+
         // Load conversations
         if (data.conversations) {
           Object.entries(data.conversations).forEach(([id, conv]) => {
@@ -35,12 +53,12 @@ class ConversationManager {
             });
           });
         }
-        
+
         // Set active conversation
         this.activeConversationId = data.activeConversationId;
         this.nextId = data.nextId || 1;
       }
-      
+
       // Create default conversation if none exist
       if (this.conversations.size === 0) {
         this.createConversation('New Chat');
@@ -52,9 +70,9 @@ class ConversationManager {
   }
 
   /**
-   * Save conversations to localStorage
+   * Save conversations to storage
    */
-  save() {
+  async save() {
     try {
       const data = {
         conversations: Object.fromEntries(this.conversations),
@@ -62,10 +80,12 @@ class ConversationManager {
         nextId: this.nextId,
         lastSaved: Date.now()
       };
-      
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
-      this.notifyListeners();
-      return true;
+
+      const success = await tauriStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+      if (success) {
+        this.notifyListeners();
+      }
+      return success;
     } catch (error) {
       console.error('Failed to save conversations:', error);
       return false;
@@ -375,11 +395,11 @@ class ConversationManager {
   /**
    * Clear all conversations
    */
-  clearAll() {
+  async clearAll() {
     this.conversations.clear();
     this.activeConversationId = null;
-    localStorage.removeItem(this.STORAGE_KEY);
-    
+    await tauriStorage.removeItem(this.STORAGE_KEY);
+
     // Create new default conversation
     this.createConversation('New Chat');
   }
