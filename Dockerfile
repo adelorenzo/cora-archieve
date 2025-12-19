@@ -78,6 +78,13 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Service Worker - must be served with correct MIME type and no caching
+    location = /sw.js {
+        add_header Content-Type application/javascript;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Service-Worker-Allowed "/";
+    }
+
     # SPA routing
     location / {
         try_files $uri $uri/ /index.html;
