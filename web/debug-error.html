@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug Error</title>
+</head>
+<body>
+  <h1>Testing Production Build</h1>
+  <div id="root"></div>
+  <pre id="error-log"></pre>
+  <script>
+    const log = document.getElementById('error-log');
+
+    window.addEventListener('error', (e) => {
+      log.textContent += `Error: ${e.message}\n`;
+      log.textContent += `Line: ${e.lineno}, Col: ${e.colno}\n`;
+      log.textContent += `File: ${e.filename}\n\n`;
+    });
+
+    // Try to load the vendor file directly
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = '/assets/vendor-DO1M0jLv.js';
+    script.onerror = (e) => {
+      log.textContent += 'Failed to load vendor file\n';
+    };
+    document.head.appendChild(script);
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Test artifacts
+.playwright-mcp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log

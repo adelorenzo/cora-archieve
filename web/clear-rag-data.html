@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear RAG Data</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #b91c1c;
+        }
+        .safe {
+            background: #059669;
+        }
+        .safe:hover {
+            background: #047857;
+        }
+        pre {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>RAG Data Management</h1>
+
+    <h2>Clear Corrupted Data</h2>
+    <button id="clearBtn">Clear All RAG Data</button>
+    <button id="clearDocsBtn">Clear Documents Only</button>
+    <button id="testBtn" class="safe">Test Simple RAG</button>
+
+    <h2>Current Storage Status</h2>
+    <pre id="status">Loading...</pre>
+
+    <h2>Results</h2>
+    <div id="result"></div>
+
+    <script>
+        function updateStatus() {
+            const status = document.getElementById('status');
+            const keys = [];
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                const size = (value.length / 1024).toFixed(1);
+
+                if (key.includes('rag') || key.includes('doc') || key.includes('embed')) {
+                    keys.push(`${key}: ${size}KB`);
+                }
+            }
+
+            status.textContent = keys.length > 0
+                ? keys.join('\n')
+                : 'No RAG data found in localStorage';
+        }
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            const result = document.getElementById('result');
+
+            // Clear all RAG-related data
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.includes('rag') || key.includes('doc') || key.includes('embed') ||
+                    key.includes('simple-rag') || key.includes('vector')) {
+                    keysToRemove.push(key);
+                }
+            }
+
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+                console.log('Removed:', key);
+            });
+
+            result.innerHTML = `<strong>✅ Cleared ${keysToRemove.length} RAG-related entries</strong><br>`;
+            keysToRemove.forEach(key => {
+                result.innerHTML += `- ${key}<br>`;
+            });
+
+            updateStatus();
+        });
+
+        document.getElementById('clearDocsBtn').addEventListener('click', () => {
+            const result = document.getElementById('result');
+
+            localStorage.removeItem('simple-rag-documents');
+            localStorage.removeItem('documents');
+
+            result.innerHTML = '<strong>✅ Cleared document storage</strong>';
+            updateStatus();
+        });
+
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            const result = document.getElementById('result');
+            result.innerHTML = 'Testing...<br>';
+
+            try {
+                // Dynamically import to test
+                const module = await import('./src/lib/embeddings/simple-rag-service.js');
+                const ragService = module.default;
+
+                // Initialize
+                await ragService.initialize();
+                result.innerHTML += '✅ Initialized<br>';
+
+                // Create small test document
+                const testDoc = {
+                    content: 'Small test document',
+                    metadata: {
+                        documentId: 'test-' + Date.now(),
+                        title: 'Test',
+                        filename: 'test.txt'
+                    }
+                };
+
+                // Index it
+                await ragService.indexDocument(testDoc);
+                result.innerHTML += '✅ Document indexed<br>';
+
+                // Search
+                const results = await ragService.searchDocuments('test');
+                result.innerHTML += `✅ Search completed: ${results.length} results<br>`;
+
+                result.innerHTML += '<br><strong>✅ RAG working correctly!</strong>';
+            } catch (error) {
+                result.innerHTML += `<br>❌ Error: ${error.message}`;
+                console.error(error);
+            }
+
+            updateStatus();
+        });
+
+        // Initial status
+        updateStatus();
+    </script>
+</body>
+</html>

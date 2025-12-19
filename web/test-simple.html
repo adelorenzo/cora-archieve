@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scheduler Fix Test</title>
+    <script>
+        // Capture console errors
+        const errors = [];
+        const originalError = console.error;
+        console.error = function(...args) {
+            errors.push(args.join(' '));
+            originalError.apply(console, arguments);
+        };
+
+        // Test the React scheduler by loading the built assets
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const hasSchedulerError = errors.some(error =>
+                    error.includes('o is not a function') ||
+                    (error.includes('TypeError') && error.includes('174'))
+                );
+
+                const testResult = {
+                    success: !hasSchedulerError,
+                    errors: errors,
+                    timestamp: new Date().toISOString()
+                };
+
+                console.log('=== SCHEDULER FIX TEST RESULT ===');
+                console.log(JSON.stringify(testResult, null, 2));
+
+                if (testResult.success) {
+                    console.log('✅ SCHEDULER FIX SUCCESSFUL: No "o is not a function" errors detected');
+                } else {
+                    console.log('❌ SCHEDULER FIX FAILED: Error still present');
+                }
+            }, 3000);
+        });
+    </script>
+</head>
+<body>
+    <h1>Testing React Scheduler Fix</h1>
+    <p>Loading React app to test if scheduler error is resolved...</p>
+    <div id="root"></div>
+
+    <!-- Load the main app assets -->
+    <link rel="stylesheet" href="/assets/main-DzTM3DOj.css">
+    <script type="module" src="/assets/main-B6m0qytO.js"></script>
+</body>
+</html>

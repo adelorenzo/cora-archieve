@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-09-18T03:29:28.405Z",
+  "url": "http://localhost:5173",
+  "errors": [
+    "TypeError: o is not a function"
+  ],
+  "errorCount": 1,
+  "success": false,
+  "screenshots": [
+    "playwright-screenshots/full-page-2025-09-18T03-29-28.png",
+    "playwright-screenshots/viewport-2025-09-18T03-29-28.png"
+  ],
+  "uiElements": [
+    {
+      "name": "Buttons",
+      "selector": "button",
+      "count": 0
+    },
+    {
+      "name": "Input fields",
+      "selector": "input, textarea",
+      "count": 0
+    },
+    {
+      "name": "Chat elements",
+      "selector": "[class*=\"chat\"], [class*=\"message\"]",
+      "count": 0
+    },
+    {
+      "name": "Settings/Modals",
+      "selector": "[class*=\"settings\"], [class*=\"modal\"]",
+      "count": 0
+    }
+  ],
+  "consoleLogs": []
+}

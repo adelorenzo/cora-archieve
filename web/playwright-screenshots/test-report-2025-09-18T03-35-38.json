@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-09-18T03:35:38.182Z",
+  "url": "http://localhost:5173",
+  "errors": [
+    "TypeError: Cannot set properties of undefined (setting 'unstable_now')"
+  ],
+  "errorCount": 1,
+  "success": false,
+  "screenshots": [
+    "playwright-screenshots/full-page-2025-09-18T03-35-38.png",
+    "playwright-screenshots/viewport-2025-09-18T03-35-38.png"
+  ],
+  "uiElements": [
+    {
+      "name": "Buttons",
+      "selector": "button",
+      "count": 0
+    },
+    {
+      "name": "Input fields",
+      "selector": "input, textarea",
+      "count": 0
+    },
+    {
+      "name": "Chat elements",
+      "selector": "[class*=\"chat\"], [class*=\"message\"]",
+      "count": 0
+    },
+    {
+      "name": "Settings/Modals",
+      "selector": "[class*=\"settings\"], [class*=\"modal\"]",
+      "count": 0
+    }
+  ],
+  "consoleLogs": []
+}

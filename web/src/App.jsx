@@ -1,0 +1,1246 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, Settings, Trash2, Cpu, Zap, Loader2, Sparkles, Database, MessageSquare, Copy, Check, RefreshCw, Download, FileText, FileSpreadsheet, AlignLeft, Activity, BookOpen, Info } from 'lucide-react';
+import { Button } from './components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog';
+import { Badge } from './components/ui/badge';
+import { Switch } from './components/ui/switch';
+import { Label } from './components/ui/label';
+// Essential components loaded immediately
+import ErrorBoundary from './components/ErrorBoundary';
+import {
+  PersonaSelectorSkeleton,
+  ModelSelectorSkeleton,
+  ThemeSwitcherSkeleton,
+  ChatSkeleton
+} from './components/LoadingSkeletons';
+
+// Import SimpleMarkdownRenderer to avoid dependency issues
+import SimpleMarkdownRenderer from './components/SimpleMarkdownRenderer';
+
+// Lazy load other heavy components to reduce initial bundle size
+const ThemeSwitcher = React.lazy(() => import('./components/ThemeSwitcher'));
+const PersonaSelector = React.lazy(() => import('./components/PersonaSelector'));
+const ModelSelector = React.lazy(() => import('./components/ModelSelector'));
+const ConversationSwitcher = React.lazy(() => import('./components/ConversationSwitcher'));
+import { useTheme } from './contexts/ThemeContext';
+import { usePersona } from './contexts/PersonaContext';
+import llmService from './lib/llm-service';
+import performanceOptimizer from './lib/performance-optimizer';
+import smartFetchService from './lib/smart-fetch-service';
+import functionCallingService from './lib/function-calling-service';
+import settingsService from './lib/settings-service';
+import conversationManager from './lib/conversation-manager';
+import { exportConversation } from './lib/export-utils';
+import ExportDropdown from './components/ExportDropdown';
+import AboutModal from './components/AboutModal';
+import { cn } from './lib/utils';
+import { SkipToContent } from './components/AccessibilityProvider';
+import ragService from './lib/rag-service';
+// Performance monitor will be imported dynamically
+
+// Lazy load performance dashboard
+const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDashboard'));
+// Lazy load document upload
+const DocumentUpload = React.lazy(() => import('./components/DocumentUpload'));
+
+function App() {
+  const { currentTheme } = useTheme();
+  const { activePersonaData } = usePersona();
+  
+  // Debug logging on component mount
+  useEffect(() => {
+    console.log('[App] Component mounted');
+    console.log('[App] Initial theme:', currentTheme);
+    console.log('[App] Active persona:', activePersonaData?.name);
+    console.log('[App] Active conversation:', activeConversation?.title);
+    console.log('[App] Environment:', {
+      userAgent: navigator.userAgent,
+      webGPU: 'gpu' in navigator,
+      serviceWorker: 'serviceWorker' in navigator,
+      indexedDB: 'indexedDB' in window
+    });
+  }, []);
+
+  // Dynamically import performance monitor to avoid initial memory issues
+  useEffect(() => {
+    const loadPerformanceMonitor = async () => {
+      try {
+        const { default: monitor } = await import('./lib/performance-monitor');
+        setPerformanceMonitor(monitor);
+        console.log('[App] Performance monitor loaded');
+      } catch (error) {
+        console.warn('[App] Failed to load performance monitor:', error);
+      }
+    };
+
+    // Delay loading slightly to allow main app to initialize
+    setTimeout(loadPerformanceMonitor, 2000);
+  }, []);
+
+  const [activeConversation, setActiveConversation] = useState(() => conversationManager.getActiveConversation());
+  const [conversations, setConversations] = useState(() => conversationManager.getAllConversations());
+  const messages = activeConversation?.messages || [];
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initStatus, setInitStatus] = useState('Initializing...');
+  const [runtime, setRuntime] = useState('detecting');
+  const [models, setModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState(() => settingsService.getModel());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [temperature, setTemperature] = useState(() => settingsService.getTemperature());
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [showConversations, setShowConversations] = useState(false);
+  const [detectedUrls, setDetectedUrls] = useState([]);
+  const [copiedIndex, setCopiedIndex] = useState(null);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [regeneratingIndex, setRegeneratingIndex] = useState(null);
+  const [responseHistory, setResponseHistory] = useState({}); // Store previous responses by message index
+  const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [performanceMonitor, setPerformanceMonitor] = useState(null);
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [ragDocuments, setRagDocuments] = useState([]);
+  const [ragSearching, setRagSearching] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  // Format timestamp for display
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isToday) {
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } else if (isYesterday) {
+      return 'Yesterday ' + date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+  };
+
+  // Listen for conversation changes
+  useEffect(() => {
+    const handleConversationChange = (data) => {
+      setActiveConversation(data.activeConversation);
+      setConversations(data.conversations);
+    };
+
+    conversationManager.addListener(handleConversationChange);
+    return () => conversationManager.removeListener(handleConversationChange);
+  }, []);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showExportMenu && !event.target.closest('.export-menu-container')) {
+        setShowExportMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showExportMenu]);
+
+  // Helper functions for conversation management
+  const addMessageToConversation = (message) => {
+    const conversationId = activeConversation?.id;
+    if (conversationId) {
+      conversationManager.addMessage(conversationId, message);
+      // Update local state to trigger re-render
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
+  };
+
+  const updateLastMessage = (updates) => {
+    if (activeConversation?.messages.length > 0) {
+      const conversationId = activeConversation.id;
+      const conversation = conversationManager.getConversation(conversationId);
+      const lastMessage = conversation.messages[conversation.messages.length - 1];
+
+      // Handle both callback function and direct object updates
+      const newUpdates = typeof updates === 'function' ? updates(lastMessage) : updates;
+      Object.assign(lastMessage, newUpdates);
+
+      conversationManager.save();
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
+  };
+
+  const removeLastMessage = () => {
+    if (activeConversation?.messages.length > 0) {
+      const conversationId = activeConversation.id;
+      const conversation = conversationManager.getConversation(conversationId);
+      conversation.messages.pop();
+      conversationManager.save();
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
+  };
+
+  const handleConversationChange = (conversation) => {
+    setActiveConversation(conversation);
+    setShowConversations(false);
+  };
+
+  const handleCopyMessage = async (content, index) => {
+    try {
+      // Extract text from message content (remove markdown formatting for copy)
+      const textContent = typeof content === 'string' ? content : content.toString();
+      await navigator.clipboard.writeText(textContent);
+
+      setCopiedIndex(index);
+      setShowCopyModal(true);
+
+      // Auto-hide modal after 2 seconds
+      setTimeout(() => {
+        setShowCopyModal(false);
+        setCopiedIndex(null);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
+  const handleRegenerateMessage = async (index) => {
+    // Find the user message that prompted this response
+    const messages = activeConversation?.messages || [];
+    if (index === 0 || messages[index - 1]?.role !== 'user') return;
+
+    const userMessage = messages[index - 1];
+    const currentResponse = messages[index];
+
+    // Store current response in history if not already stored
+    if (!responseHistory[index]) {
+      setResponseHistory(prev => ({
+        ...prev,
+        [index]: [currentResponse.content]
+      }));
+    } else if (!responseHistory[index].includes(currentResponse.content)) {
+      setResponseHistory(prev => ({
+        ...prev,
+        [index]: [...prev[index], currentResponse.content]
+      }));
+    }
+
+    setRegeneratingIndex(index);
+    setIsLoading(true);
+
+    try {
+      // Remove the AI response we're regenerating
+      const conversationId = activeConversation.id;
+      const conversation = conversationManager.getConversation(conversationId);
+      conversation.messages = conversation.messages.slice(0, index);
+      conversationManager.save();
+      setActiveConversation(conversationManager.getActiveConversation());
+
+      // Add empty message for streaming with timestamp
+      addMessageToConversation({
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toISOString()
+      });
+
+      // Generate new response using streaming
+      const systemMessages = getSystemMessages(false, false);
+      const allMessages = [
+        ...systemMessages,
+        ...conversation.messages.slice(0, index - 1), // Previous context
+        userMessage
+      ];
+
+      let fullResponse = '';
+      const stream = llmService.chat(allMessages, {
+        temperature: temperature,
+        max_tokens: 2048
+      });
+
+      for await (const delta of stream) {
+        // Handle regular content like normal streaming
+        if (delta.content) {
+          fullResponse += delta.content;
+          updateLastMessage({ content: fullResponse });
+        }
+      }
+
+      // Store new response in history
+      setResponseHistory(prev => ({
+        ...prev,
+        [index]: [...(prev[index] || []), fullResponse]
+      }));
+    } catch (error) {
+      console.error('[RegenerateMessage] Error:', error);
+      updateLastMessage({
+        content: `Error regenerating response: ${error.message}. Please try again.`
+      });
+    } finally {
+      setIsLoading(false);
+      setRegeneratingIndex(null);
+    }
+  };
+
+  const getSystemMessages = (includeToolInstructions = false, useManualFormat = false) => {
+    const basePrompt = activePersonaData?.systemPrompt || "You are a concise, helpful assistant that runs 100% locally in the user's browser.";
+    
+    let toolPrompt = "";
+    if (includeToolInstructions) {
+      if (useManualFormat) {
+        // Use manual format for models that don't properly support function calling
+        toolPrompt = "\n\n" + functionCallingService.getManualFunctionCallingPrompt();
+      } else {
+        // Use standard format for models that support proper function calling
+        toolPrompt = "\n\nYou have access to web search tools. IMPORTANT: You MUST use the web_search function for ANY request about current information, weather, news, or web searches. Do NOT generate responses from your training data for these queries. Instead, call the web_search function with an appropriate query. Format: Use the tool/function calling mechanism, not text output.";
+      }
+    }
+    
+    return [
+      { role: "system", content: basePrompt + toolPrompt }
+    ];
+  };
+
+  useEffect(() => {
+    console.log('[App] Starting initialization...');
+    loadAvailableModels();
+
+    // Track app initialization
+    performanceOptimizer.trackInteraction('app-start');
+    console.log('[App] Performance tracking started');
+
+    // Initialize RAG service
+    ragService.initialize().then(() => {
+      console.log('[App] RAG service initialized');
+      // Load existing documents
+      ragService.getDocuments().then(docs => {
+        setRagDocuments(docs);
+        console.log(`[App] Loaded ${docs.length} documents`);
+      });
+    }).catch(error => {
+      console.warn('[App] RAG service initialization failed:', error);
+    });
+
+    // Start performance monitoring
+    setTimeout(() => {
+      console.log('[App] Starting critical component preload...');
+      performanceOptimizer.preloadCriticalComponents();
+    }, 3000);
+
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const loadAvailableModels = async () => {
+    try {
+      console.log('[App] Loading available models...');
+      setInitStatus('Detecting runtime...');
+      const detectedRuntime = await llmService.detectRuntime();
+      console.log('[App] Detected runtime:', detectedRuntime);
+      setRuntime(detectedRuntime);
+      
+      if (detectedRuntime === 'webgpu') {
+        console.log('[App] Fetching WebGPU models...');
+        const availableModels = await llmService.getAvailableModels();
+        console.log('[App] Available models:', availableModels.length);
+        setModels(availableModels);
+        
+        if (availableModels.length > 0) {
+          // Check for saved model preference
+          const savedModel = settingsService.getModel();
+          let modelToSelect = null;
+
+          if (savedModel && availableModels.find(m => m.model_id === savedModel)) {
+            // User has a saved preference - use it
+            modelToSelect = savedModel;
+            console.log('[App] Restoring saved model:', savedModel);
+          } else {
+            // New user or saved model not available - try Hermes first, then fall back
+            const hermesModel = availableModels.find(m =>
+              m.model_id.includes('Hermes-3-Llama-3.1-8B')
+            );
+
+            if (hermesModel) {
+              modelToSelect = hermesModel.model_id;
+              console.log('[App] Selected Hermes as default model for new user');
+            } else {
+              // Fallback to DeepSeek if Hermes not available
+              const fallbackModel = availableModels.find(m =>
+                m.model_id.includes('DeepSeek-R1-Distill-Qwen-1.5B')
+              ) || availableModels[0];
+              modelToSelect = fallbackModel.model_id;
+              console.log('[App] Hermes not available, falling back to:', modelToSelect);
+            }
+          }
+
+          setSelectedModel(modelToSelect);
+          // Save the model choice immediately
+          settingsService.setModel(modelToSelect);
+
+          // Auto-initialize the model
+          console.log('[App] Auto-initializing model:', modelToSelect);
+          setInitStatus('Loading model...');
+          await initializeLLM(modelToSelect);
+        } else {
+          setInitStatus('No models available');
+        }
+      } else {
+        setInitStatus('WASM mode - Click to initialize');
+        // Auto-initialize WASM mode
+        console.log('[App] Auto-initializing WASM mode...');
+        await initializeLLM();
+      }
+    } catch (error) {
+      console.error('Failed to detect runtime:', error);
+      setRuntime('wasm'); // Fallback to WASM on error
+      setInitStatus('WASM mode (fallback) - Click to initialize');
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  // Define as function declaration for hoisting
+  async function initializeLLM(modelToLoad = selectedModel) {
+    if (!modelToLoad && runtime === 'webgpu') {
+      setInitStatus('Please select a model');
+      return;
+    }
+
+    setIsInitializing(true);
+    performanceMonitor?.startLLMInit();
+
+    try {
+      const result = await llmService.initialize(modelToLoad, setInitStatus);
+      setRuntime(result.runtime);
+      if (result.models) {
+        setModels(result.models);
+      }
+      if (result.selectedModel) {
+        setSelectedModel(result.selectedModel);
+        // Save the successfully initialized model
+        settingsService.setModel(result.selectedModel);
+      }
+      setInitStatus('Ready');
+      setIsInitializing(false);
+      performanceMonitor?.endLLMInit();
+    } catch (error) {
+      console.error('Failed to initialize LLM:', error);
+      performanceMonitor?.trackError(error, 'LLM initialization');
+      setInitStatus('Failed to initialize - Try another model');
+      setIsInitializing(false);
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading || isInitializing) return;
+    
+    // Initialize if not yet initialized
+    if (!llmService.engine) {
+      if (runtime === 'wasm') {
+        await initializeLLM();
+      } else {
+        setInitStatus('Please select a model first');
+        setSettingsOpen(true);
+        return;
+      }
+    }
+
+    const userMessage = {
+      role: 'user',
+      content: input.trim(),
+      timestamp: new Date().toISOString()
+    };
+    const userQuery = input.trim();
+    const messageId = Date.now();
+
+    // Start performance tracking
+    const startTime = performanceMonitor?.startMessageProcessing(messageId);
+
+    // Add user message to conversation
+    addMessageToConversation(userMessage);
+    
+    // Check for RAG context if enabled
+    let ragContext = '';
+    if (ragEnabled && ragDocuments.length > 0) {
+      setRagSearching(true);
+      try {
+        console.log('[App] Searching documents for relevant context...');
+        const searchResults = await ragService.search(userQuery, 3, 0.3);
+
+        if (searchResults.length > 0) {
+          console.log(`[App] Found ${searchResults.length} relevant document chunks`);
+          ragContext = '\n\n### Relevant Document Context:\n' +
+            searchResults.map((result, idx) =>
+              `${idx + 1}. ${result.text} (Score: ${result.score.toFixed(2)})`
+            ).join('\n\n');
+        }
+      } catch (error) {
+        console.error('[App] RAG search failed:', error);
+      } finally {
+        setRagSearching(false);
+      }
+    }
+
+    // Check for URLs and smart fetch if detected
+    let webContext = '';
+    if (smartFetchService.shouldFetchUrls(userQuery)) {
+      console.log('[App] Detected URLs in message, fetching content...');
+      
+      // Show loading state with URL detection message
+      const loadingMessage = { 
+        role: 'system', 
+        content: '🔍 Detected URLs in your message. Fetching web content...' 
+      };
+      addMessageToConversation(loadingMessage);
+      
+      try {
+        // Initialize smart fetch if needed
+        if (!smartFetchService.initialized) {
+          await smartFetchService.initialize();
+        }
+        
+        // Fetch URLs
+        const fetchResult = await smartFetchService.smartFetch(userQuery);
+        
+        if (fetchResult.content.length > 0) {
+          webContext = smartFetchService.formatForChat(fetchResult);
+          console.log(`[App] Fetched ${fetchResult.content.length} URLs successfully`);
+          
+          // Remove loading message and add success message
+          removeLastMessage();
+          const successMessage = {
+            role: 'system',
+            content: `✅ Fetched content from ${fetchResult.content.length} URL(s). Analyzing...`
+          };
+          addMessageToConversation(successMessage);
+          
+          // Small delay to show the success message
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Remove success message
+          removeLastMessage();
+        } else {
+          // Remove loading message if no content fetched
+          removeLastMessage();
+        }
+      } catch (error) {
+        console.error('[App] Smart fetch failed:', error);
+        // Remove loading message and show error
+        removeLastMessage();
+        const errorMessage = {
+          role: 'system',
+          content: '⚠️ Unable to fetch web content. Proceeding without it.'
+        };
+        addMessageToConversation(errorMessage);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        removeLastMessage();
+      }
+    }
+    
+    setInput('');
+    setIsLoading(true);
+    setIsStreaming(true);
+
+    const assistantMessage = {
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toISOString()
+    };
+    addMessageToConversation(assistantMessage);
+
+    try {
+      // Check if we should enable web search based on the query AND if the model supports it
+      const modelSupportsFunctions = functionCallingService.supportsModelFunctionCalling(llmService.currentModel);
+      const shouldSearchWeb = functionCallingService.shouldUseWebSearch(userQuery);
+      
+      // For Hermes models, always enable manual function calling
+      // The model will autonomously decide when to search
+      const isHermesModel = llmService.currentModel?.includes('Hermes');
+      const useManualFunctionCalling = isHermesModel; // Always enabled for Hermes
+      const useStandardTools = modelSupportsFunctions && shouldSearchWeb && !isHermesModel;
+      
+      const systemMessages = getSystemMessages(
+        isHermesModel || (shouldSearchWeb && modelSupportsFunctions),
+        useManualFunctionCalling
+      );
+      
+      // Add web context and RAG context if available
+      let enhancedUserMessage = userMessage;
+      if (webContext || ragContext) {
+        enhancedUserMessage = {
+          role: 'user',
+          content: `${userMessage.content}${ragContext}${webContext ? '\n\n' + webContext : ''}`
+        };
+      }
+      
+      const allMessages = [
+        ...systemMessages,
+        ...messages,
+        enhancedUserMessage
+      ];
+      
+      if (!modelSupportsFunctions && !isHermesModel && shouldSearchWeb) {
+        console.log('[App] Web search requested but model does not support function calling');
+      }
+      
+      // Only use tools parameter for non-Hermes models that support it
+      const tools = useStandardTools ? functionCallingService.getToolSchemas() : undefined;
+      
+      // Use the enhanced chat method that handles function calling
+      const stream = llmService.chat(allMessages, { 
+        temperature: activePersonaData?.temperature || temperature,
+        tools: tools
+      });
+
+      let functionCallBuffer = null;
+      let contentBuffer = '';
+      let textFunctionCallDetected = null;
+      
+      for await (const delta of stream) {
+        // Handle regular content
+        if (delta.content) {
+          contentBuffer += delta.content;
+          updateLastMessage({ content: contentBuffer });
+        }
+        
+        // Check for text-based function call (fallback for models that don't support proper function calling)
+        if (delta.textFunctionCall) {
+          textFunctionCallDetected = delta.textFunctionCall;
+          console.log('[App] Text-based function call detected:', textFunctionCallDetected);
+        }
+        
+        // Handle tool/function calls
+        if (delta.tool_calls) {
+          for (const toolCall of delta.tool_calls) {
+            functionCallBuffer = toolCall;
+          }
+        }
+        
+        // When streaming is complete and we have a function call
+        if (delta.finish_reason === 'tool_calls' && functionCallBuffer) {
+          console.log('[App] Function call detected:', functionCallBuffer);
+          
+          // Execute the function call
+          try {
+            // Add status message
+            updateLastMessage({ content: contentBuffer + '\n\n🔍 Searching the web...' });
+            
+            // Execute the function
+            const functionResponse = await functionCallingService.processFunctionCall(functionCallBuffer);
+            
+            if (functionResponse) {
+              // Add function response to messages
+              const updatedMessages = [
+                ...allMessages,
+                { role: 'assistant', content: contentBuffer, tool_calls: [functionCallBuffer] },
+                functionResponse
+              ];
+              
+              // Continue conversation with function result
+              const continueStream = llmService.chat(updatedMessages, {
+                temperature: activePersonaData?.temperature || temperature,
+              });
+              
+              // Clear the status and start new response
+              updateLastMessage(msg => ({
+                ...msg,
+                content: contentBuffer + '\n\n'
+              }));
+              
+              for await (const continueDelta of continueStream) {
+                if (continueDelta.content) {
+                  updateLastMessage(msg => ({
+                    ...msg,
+                    content: msg.content + continueDelta.content
+                  }));
+                }
+              }
+            }
+          } catch (error) {
+            console.error('[App] Function call failed:', error);
+            updateLastMessage(msg => ({
+              ...msg,
+              content: contentBuffer + '\n\n⚠️ Web search failed. Continuing with available information...'
+            }));
+          }
+        }
+      }
+      
+      // Handle text-based function calls (fallback for models that simulate function calls)
+      if (textFunctionCallDetected && textFunctionCallDetected.detected) {
+        console.log('[App] Processing text-based function call...');
+        
+        try {
+          // Execute the text-detected function
+          const searchResult = await functionCallingService.executeTextFunctionCall(textFunctionCallDetected);
+          
+          if (searchResult) {
+            // Update the message to show search was performed
+            updateLastMessage(msg => ({
+              ...msg,
+              content: contentBuffer + '\n\n📌 Web Search Results:\n' + searchResult
+            }));
+          }
+        } catch (error) {
+          console.error('[App] Text-based function call failed:', error);
+        }
+      }
+      
+      // Check for manual function call format [SEARCH: query] in the final content
+      if (useManualFunctionCalling && contentBuffer) {
+        const manualCall = functionCallingService.detectManualFunctionCall(contentBuffer);
+        if (manualCall.detected) {
+          console.log('[App] Manual function call detected:', manualCall);
+          
+          let searchResult = null;
+          try {
+            // Show searching animation
+            updateLastMessage(msg => ({
+              ...msg,
+              content: '🔍 Searching the web...'
+            }));
+            
+            // Execute the search
+            searchResult = await functionCallingService.executeTextFunctionCall(manualCall);
+            
+            if (searchResult) {
+              // Store search results but don't display them yet
+              // Instead, immediately try to get a follow-up response from the model
+              try {
+                const searchResultMessage = { 
+                  role: 'user', 
+                  content: `Based on these search results, please provide a helpful response to the original question: "${userQuery}"\n\nSearch Results:\n${searchResult}`
+                };
+                
+                const continueMessages = [
+                  ...allMessages,
+                  { role: 'assistant', content: `[SEARCH: ${manualCall.query}]\n\nSearch Results:\n${searchResult}` },
+                  searchResultMessage
+                ];
+                
+                // Update to "Generating response..." indicator
+                updateLastMessage(msg => ({
+                  ...msg,
+                  content: '✨ Analyzing search results...'
+                }));
+                
+                // Continue the conversation with search results
+                const continueStream = await llmService.chat(continueMessages, {
+                  temperature: activePersonaData?.temperature || temperature,
+                  // Don't pass tools for the continuation
+                });
+                
+                // Start with empty content for clean response
+                let continuationContent = '';
+                for await (const delta of continueStream) {
+                  if (delta && delta.content) {
+                    continuationContent += delta.content;
+                    updateLastMessage(msg => ({
+                      ...msg,
+                      content: continuationContent
+                    }));
+                  }
+                }
+              } catch (contError) {
+                console.warn('[App] Could not generate follow-up response:', contError);
+                // Show a simplified message if follow-up fails
+                updateLastMessage(msg => ({
+                  ...msg,
+                  content: `I found information about your query from web search. Based on the latest available information, I can provide some context, though I'm having difficulty generating a detailed response at the moment.`
+                }));
+              }
+            }
+          } catch (error) {
+            console.error('[App] Manual function call error:', error);
+            // Show clean error message
+            updateLastMessage(msg => ({
+              ...msg,
+              content: '⚠️ Search failed. Please try again.'
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Generation error:', error);
+      updateLastMessage(msg => ({
+        ...msg,
+        content: 'Error generating response. Please try again.'
+      }));
+    } finally {
+      setIsLoading(false);
+      setIsStreaming(false);
+      // End performance tracking
+      if (messageId && startTime) {
+        performanceMonitor?.endMessageProcessing(messageId, startTime);
+      }
+    }
+  };
+
+
+  const handleModelChange = async (model) => {
+    setSelectedModel(model);
+    // Save model preference using settings service
+    settingsService.setModel(model);
+    console.log('[App] Saved model preference:', model);
+    setSettingsOpen(false);
+
+    // If no engine is loaded yet, initialize with the selected model
+    if (!llmService.engine) {
+      await initializeLLM(model);
+    } else {
+      // Switch to the new model
+      setIsInitializing(true);
+      try {
+        const result = await llmService.switchModel(model);
+        setRuntime(result.runtime);
+        setModels(result.models || models);
+        setInitStatus('Ready');
+      } catch (error) {
+        console.error('Failed to switch model:', error);
+        setInitStatus('Failed to switch model');
+      } finally {
+        setIsInitializing(false);
+      }
+    }
+  };
+
+  const clearChat = () => {
+    if (activeConversation) {
+      // Clear messages in current conversation
+      conversationManager.updateConversation(activeConversation.id, {
+        messages: [],
+        updatedAt: new Date()
+      });
+      setActiveConversation(conversationManager.getActiveConversation());
+    }
+  };
+
+  return (
+    <div className="app-container h-screen flex flex-col bg-background text-foreground overflow-hidden">
+      <SkipToContent />
+      {/* Copy to Clipboard Modal */}
+      {showCopyModal && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+          <div className="bg-card border border-border rounded-xl shadow-2xl px-5 py-3 flex items-center gap-3 animate-fade-up backdrop-blur-md">
+            <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
+            </div>
+            <span className="text-sm font-medium text-foreground">Copied to clipboard</span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col h-full overflow-hidden relative z-10">
+        {/* Header */}
+        <header className="refined-header flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-4">
+            <div className="logo-container relative">
+              <div className="logo-glow"></div>
+              <img
+                src="/icon-192.png"
+                alt="Cora"
+                className="w-10 h-10 rounded-xl shadow-lg relative z-10"
+              />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-card z-20"></div>
+            </div>
+            <div className="flex flex-col">
+              <h1 className="brand-title text-xl leading-tight">
+                Cora
+              </h1>
+              <div className="flex items-center gap-1.5">
+                <span className="brand-subtitle">Local AI Assistant</span>
+                <button
+                  onClick={() => setShowAboutModal(true)}
+                  className="refined-action-button !w-5 !h-5 !rounded-md"
+                  title="Learn more about Cora's architecture"
+                  aria-label="About Cora architecture"
+                >
+                  <Info className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Document Upload */}
+            <React.Suspense fallback={
+              <Button variant="outline" size="icon" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </Button>
+            }>
+              <DocumentUpload
+                onDocumentsChange={(docs) => {
+                  setRagDocuments(docs);
+                  console.log(`[App] Documents updated: ${docs.length}`);
+                }}
+              />
+            </React.Suspense>
+
+            {/* RAG Toggle */}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-secondary/50">
+              {ragSearching ? (
+                <Loader2 className="h-4 w-4 text-primary animate-spin" />
+              ) : (
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+              )}
+              <Switch
+                checked={ragEnabled}
+                onCheckedChange={setRagEnabled}
+                className="data-[state=checked]:bg-primary"
+              />
+              <span className="text-xs font-medium text-muted-foreground">
+                {ragSearching ? 'Searching...' : `RAG ${ragDocuments.length > 0 ? `(${ragDocuments.length})` : ''}`}
+              </span>
+            </div>
+
+            <React.Suspense fallback={<PersonaSelectorSkeleton />}>
+              <PersonaSelector />
+            </React.Suspense>
+
+            <React.Suspense fallback={<ThemeSwitcherSkeleton />}>
+              <ThemeSwitcher />
+            </React.Suspense>
+
+            {/* Export Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('[Export] Current state:', showExportMenu, 'Setting to:', !showExportMenu);
+                setShowExportMenu(!showExportMenu);
+              }}
+              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Export conversation"
+              aria-label="Export conversation"
+              disabled={messages.length === 0}
+            >
+              <Download className="h-5 w-5" />
+            </Button>
+            <ExportDropdown
+              isOpen={showExportMenu}
+              onClose={() => setShowExportMenu(false)}
+              messages={messages}
+              title={activeConversation?.title || 'Cora Chat'}
+            />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowPerformanceDashboard(true)}
+              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Performance Dashboard"
+              aria-label="Open performance dashboard"
+            >
+              <Activity className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSettingsOpen(true)}
+              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Settings"
+              aria-label="Open settings"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={clearChat}
+              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Clear chat"
+              aria-label="Clear chat history"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </div>
+        </header>
+
+        {/* Status Bar */}
+        <div className="refined-status-bar relative z-50 px-6 py-2.5 flex items-center gap-3">
+          {/* Conversations Button */}
+          <button
+            onClick={() => setShowConversations(!showConversations)}
+            className="refined-action-button"
+            title="Conversations"
+            aria-label="Toggle conversations panel"
+          >
+            <MessageSquare className="h-4 w-4" />
+          </button>
+
+          <React.Suspense fallback={<ModelSelectorSkeleton />}>
+            <ModelSelector
+              currentModel={selectedModel}
+              onModelSelect={handleModelChange}
+              runtime={runtime}
+            />
+          </React.Suspense>
+          <div className={cn(
+            "status-pill",
+            runtime === "webgpu" ? "webgpu" :
+            runtime === "wasm" ? "wasm" :
+            "bg-muted text-muted-foreground"
+          )}>
+            {runtime === "webgpu" ? <Zap className="h-3 w-3" /> : <Cpu className="h-3 w-3" />}
+            {runtime === "detecting" ? "Detecting..." : runtime.toUpperCase()}
+          </div>
+          <span className="text-xs text-muted-foreground font-medium" style={{ fontFamily: 'var(--font-mono)' }}>
+            {isInitializing ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {initStatus}
+              </span>
+            ) : (
+              initStatus
+            )}
+          </span>
+        </div>
+
+
+        {/* Main Content Area with Optional Conversation Switcher and Web Search Panel */}
+        <div className="flex-1 flex mx-6 my-4 gap-4 min-h-0">
+          {/* Conversation Switcher - slides in from left */}
+          {showConversations && (
+            <div className="refined-panel w-80 animate-fade-up">
+              <React.Suspense fallback={
+                <div className="w-full h-full p-4 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              }>
+                <ConversationSwitcher
+                  onConversationChange={handleConversationChange}
+                  className="h-full"
+                />
+              </React.Suspense>
+            </div>
+          )}
+
+          {/* Chat Container - fills remaining space */}
+          <main id="main-content" role="main" className="refined-chat-container flex-1 flex flex-col">
+          {/* Messages - fills available space */}
+          <div className="flex-1 overflow-y-auto refined-scrollbar p-6 space-y-5" tabIndex="0" aria-label="Chat messages">
+            {messages.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">
+                  <Sparkles className="h-12 w-12 text-[hsl(var(--accent-glow))]" />
+                </div>
+                <p className="empty-state-title">Start a conversation</p>
+                <p className="empty-state-subtitle">Your AI runs 100% locally in this browser</p>
+              </div>
+            ) : (
+              messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "group flex flex-col gap-1",
+                    msg.role === "user" ? "items-end" : "items-start"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "message-bubble",
+                      msg.role === "user" ? "user-message" : "assistant-message"
+                    )}
+                  >
+                    <ErrorBoundary>
+                      {msg.content ? (
+                        msg.role === "assistant" ? (
+                          <SimpleMarkdownRenderer content={msg.content} />
+                        ) : (
+                          <div className="whitespace-pre-wrap break-words">
+                            {msg.content}
+                          </div>
+                        )
+                      ) : (
+                        <div className="typing-indicator">
+                          <span style={{ animationDelay: "0ms" }}></span>
+                          <span style={{ animationDelay: "150ms" }}></span>
+                          <span style={{ animationDelay: "300ms" }}></span>
+                        </div>
+                      )}
+                    </ErrorBoundary>
+                  </div>
+                  {msg.content && (
+                    <div className={cn(
+                      "flex items-center gap-2 mt-1.5",
+                      msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                    )}>
+                      <span className="refined-timestamp select-none">
+                        {formatTimestamp(msg.timestamp)}
+                      </span>
+                      <div className={cn(
+                        "flex gap-1",
+                        msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                      )}>
+                        <button
+                          onClick={() => handleCopyMessage(msg.content, idx)}
+                          className={cn(
+                            "opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+                            "text-muted-foreground hover:text-foreground",
+                            "p-1 rounded hover:bg-secondary/50"
+                          )}
+                          title="Copy to clipboard"
+                          aria-label="Copy message to clipboard"
+                        >
+                          {copiedIndex === idx ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                        {msg.role === "assistant" && (
+                        <button
+                          onClick={() => handleRegenerateMessage(idx)}
+                          disabled={regeneratingIndex === idx || isLoading}
+                          className={cn(
+                            "opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+                            "text-muted-foreground hover:text-foreground",
+                            "p-1.5 rounded-lg hover:bg-secondary/50",
+                            "disabled:opacity-50 disabled:cursor-not-allowed"
+                          )}
+                          title={responseHistory[idx]?.length > 1
+                            ? `Regenerate (${responseHistory[idx].length} versions)`
+                            : "Regenerate response"}
+                          aria-label="Regenerate AI response"
+                        >
+                          <RefreshCw
+                            className={cn(
+                              "h-3 w-3",
+                              regeneratingIndex === idx && "animate-spin"
+                            )}
+                          />
+                        </button>
+                      )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Form */}
+          <form onSubmit={handleSubmit} className="refined-input-container">
+            {/* URL Detection Indicator */}
+            {detectedUrls.length > 0 && (
+              <div className="mb-3 px-4 py-2.5 bg-[hsl(var(--accent-glow)/0.1)] border border-[hsl(var(--accent-glow)/0.2)] rounded-xl flex items-center gap-2 text-sm">
+                <Database className="h-4 w-4 text-[hsl(var(--accent-glow))]" />
+                <span className="text-foreground/80" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                  {detectedUrls.length} URL{detectedUrls.length > 1 ? 's' : ''} detected — will fetch on send
+                </span>
+              </div>
+            )}
+            <div className="refined-input-wrapper">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setInput(value);
+                  // Detect URLs in real-time
+                  const urls = smartFetchService.detectUrls(value);
+                  setDetectedUrls(urls);
+                }}
+                placeholder="Ask anything..."
+                disabled={isLoading || isInitializing}
+                className="refined-input"
+                aria-label="Chat message input"
+              />
+              <button
+                type="submit"
+                disabled={isLoading || isInitializing || !input.trim()}
+                className="refined-send-button"
+                aria-label="Send message"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+          </form>
+        </main>
+
+        {/* Web Search Panel */}
+      </div>
+
+        {/* Settings Dialog */}
+        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <DialogContent onClose={() => setSettingsOpen(false)}>
+            <DialogHeader>
+              <DialogTitle>Settings</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Temperature: {temperature}
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={temperature}
+                  onChange={(e) => {
+                    const newTemp = parseFloat(e.target.value);
+                    setTemperature(newTemp);
+                    settingsService.setTemperature(newTemp);
+                  }}
+                  className="w-full mt-1 accent-primary"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Runtime: {runtime === "webgpu" ? "WebGPU (Optimal)" : "WASM (Fallback)"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Model: {selectedModel || "Loading..."}
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Performance Dashboard */}
+        <React.Suspense fallback={null}>
+          <PerformanceDashboard
+            isOpen={showPerformanceDashboard}
+            onClose={() => setShowPerformanceDashboard(false)}
+          />
+        </React.Suspense>
+
+        {/* About Modal */}
+        <AboutModal
+          isOpen={showAboutModal}
+          onClose={() => setShowAboutModal(false)}
+        />
+
+      </div>
+    </div>
+  );
+}
+
+export default App;

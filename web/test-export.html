@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Export Utils</title>
+</head>
+<body>
+  <h1>Export Utils Test</h1>
+  <button id="markdown">Export Markdown</button>
+  <button id="text">Export Text</button>
+  <button id="csv">Export CSV</button>
+
+  <script type="module">
+    import { exportConversation } from './src/lib/export-utils.js';
+
+    const testMessages = [
+      {
+        role: 'user',
+        content: 'Hello, can you help me with JavaScript?'
+      },
+      {
+        role: 'assistant',
+        content: 'Of course! I\'d be happy to help you with JavaScript. What specific topic or problem would you like to discuss?'
+      },
+      {
+        role: 'user',
+        content: 'How do I create a function?'
+      },
+      {
+        role: 'assistant',
+        content: 'Here\'s how to create a function in JavaScript:\n\n```javascript\nfunction greet(name) {\n  return "Hello, " + name;\n}\n```\n\nYou can also use arrow functions:\n```javascript\nconst greet = (name) => "Hello, " + name;\n```'
+      }
+    ];
+
+    document.getElementById('markdown').onclick = () => {
+      exportConversation(testMessages, 'markdown', 'Test Conversation');
+    };
+
+    document.getElementById('text').onclick = () => {
+      exportConversation(testMessages, 'text', 'Test Conversation');
+    };
+
+    document.getElementById('csv').onclick = () => {
+      exportConversation(testMessages, 'csv', 'Test Conversation');
+    };
+  </script>
+</body>
+</html>

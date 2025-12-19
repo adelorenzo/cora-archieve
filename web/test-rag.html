@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+    button { margin: 5px; padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    #output { margin-top: 20px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>RAG System Test</h1>
+
+  <button onclick="testPouchDB()">Test PouchDB</button>
+  <button onclick="testProcessText()">Test Text Processing</button>
+  <button onclick="testSearch()">Test Search</button>
+  <button onclick="testFullPipeline()">Test Full Pipeline</button>
+  <button onclick="clearData()">Clear All Data</button>
+
+  <div id="output"></div>
+
+  <script type="module">
+    import PouchDB from 'https://unpkg.com/pouchdb@9.0.0/dist/pouchdb.esm.js';
+    import ragService from './src/lib/rag-service.js';
+
+    const output = document.getElementById('output');
+
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = type;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      output.appendChild(entry);
+      console.log(message);
+    }
+
+    window.testPouchDB = async function() {
+      try {
+        log('Testing PouchDB...');
+        const db = new PouchDB('rag_test');
+
+        // Create a test doc
+        const doc = await db.put({
+          _id: 'test_' + Date.now(),
+          title: 'Test Document',
+          content: 'This is a test document',
+          created_at: new Date().toISOString()
+        });
+
+        log('Document created: ' + doc.id, 'success');
+
+        // Read it back
+        const retrieved = await db.get(doc.id);
+        log('Document retrieved: ' + retrieved.title, 'success');
+
+        // Clean up
+        await db.remove(retrieved);
+        log('Document deleted', 'success');
+
+        await db.destroy();
+        log('PouchDB test complete!', 'success');
+      } catch (error) {
+        log('PouchDB test failed: ' + error.message, 'error');
+      }
+    };
+
+    window.testProcessText = async function() {
+      try {
+        log('Testing text processing...');
+
+        const testText = `
+          This is a test document for the RAG system.
+          It contains multiple sentences that should be chunked.
+          The system should create embeddings and store them.
+        `;
+
+        const docId = await ragService.processDocument(testText, 'Test Document');
+        log('Document processed with ID: ' + docId, 'success');
+
+        const stats = await ragService.getStats();
+        log(`Stats - Documents: ${stats.documents}, Chunks: ${stats.chunks}`, 'info');
+
+        log('Text processing test complete!', 'success');
+      } catch (error) {
+        log('Text processing test failed: ' + error.message, 'error');
+      }
+    };
+
+    window.testSearch = async function() {
+      try {
+        log('Testing search...');
+
+        // First add a document
+        const testText = `
+          WebGPU is a modern graphics API for the web.
+          It provides low-level access to GPU hardware.
+          This enables high-performance graphics and compute on the web.
+        `;
+
+        await ragService.processDocument(testText, 'WebGPU Info');
+        log('Document added for search', 'info');
+
+        // Now search
+        const results = await ragService.search('What is WebGPU?', 3);
+        log(`Found ${results.length} results`, 'info');
+
+        results.forEach((result, idx) => {
+          log(`Result ${idx + 1}: ${result.text.substring(0, 50)}... (score: ${result.score.toFixed(3)})`, 'success');
+        });
+
+        log('Search test complete!', 'success');
+      } catch (error) {
+        log('Search test failed: ' + error.message, 'error');
+      }
+    };
+
+    window.testFullPipeline = async function() {
+      try {
+        log('Testing full RAG pipeline...');
+
+        // Add multiple documents
+        const docs = [
+          {
+            text: 'Machine learning models can be trained using various algorithms including neural networks, decision trees, and support vector machines.',
+            title: 'ML Basics'
+          },
+          {
+            text: 'React is a JavaScript library for building user interfaces. It uses a component-based architecture and virtual DOM.',
+            title: 'React Overview'
+          },
+          {
+            text: 'Docker containers provide a lightweight way to package and deploy applications with all their dependencies.',
+            title: 'Docker Intro'
+          }
+        ];
+
+        for (const doc of docs) {
+          await ragService.processDocument(doc.text, doc.title);
+          log(`Added document: ${doc.title}`, 'info');
+        }
+
+        // Test different queries
+        const queries = [
+          'What is machine learning?',
+          'How does React work?',
+          'Tell me about containers'
+        ];
+
+        for (const query of queries) {
+          log(`\nSearching: "${query}"`, 'info');
+          const results = await ragService.search(query, 2);
+
+          if (results.length > 0) {
+            log(`Top result: ${results[0].text.substring(0, 60)}...`, 'success');
+          } else {
+            log('No results found', 'info');
+          }
+        }
+
+        const stats = await ragService.getStats();
+        log(`\nFinal stats - Docs: ${stats.documents}, Chunks: ${stats.chunks}`, 'info');
+
+        log('\nFull pipeline test complete!', 'success');
+      } catch (error) {
+        log('Full pipeline test failed: ' + error.message, 'error');
+      }
+    };
+
+    window.clearData = async function() {
+      try {
+        log('Clearing all data...');
+        await ragService.clearAll();
+        log('All data cleared!', 'success');
+      } catch (error) {
+        log('Clear data failed: ' + error.message, 'error');
+      }
+    };
+
+    // Initialize
+    log('RAG test page loaded. Click buttons to test functionality.', 'info');
+  </script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+/* Base theme structure */
+:root {
+  --transition-theme: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Light Theme */
+.light {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
+}
+
+/* Dark Theme (Default) */
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
+}
+
+/* Ocean Theme */
+.ocean {
+  --background: 200 40% 8%;
+  --foreground: 200 10% 95%;
+  --card: 200 35% 10%;
+  --card-foreground: 200 10% 95%;
+  --popover: 200 35% 12%;
+  --popover-foreground: 200 10% 95%;
+  --primary: 200 60% 50%;
+  --primary-foreground: 200 10% 10%;
+  --secondary: 200 30% 18%;
+  --secondary-foreground: 200 10% 95%;
+  --muted: 200 20% 25%;
+  --muted-foreground: 200 10% 65%;
+  --accent: 180 50% 45%;
+  --accent-foreground: 200 10% 95%;
+  --destructive: 0 60% 50%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 200 30% 20%;
+  --input: 200 30% 18%;
+  --ring: 200 60% 50%;
+}
+
+/* Forest Theme */
+.forest {
+  --background: 140 20% 8%;
+  --foreground: 80 10% 95%;
+  --card: 140 20% 10%;
+  --card-foreground: 80 10% 95%;
+  --popover: 140 20% 12%;
+  --popover-foreground: 80 10% 95%;
+  --primary: 140 40% 40%;
+  --primary-foreground: 140 10% 95%;
+  --secondary: 140 15% 18%;
+  --secondary-foreground: 80 10% 95%;
+  --muted: 140 10% 25%;
+  --muted-foreground: 140 10% 65%;
+  --accent: 80 40% 45%;
+  --accent-foreground: 140 10% 10%;
+  --destructive: 0 60% 45%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 140 15% 20%;
+  --input: 140 15% 18%;
+  --ring: 140 40% 40%;
+}
+
+/* Sunset Theme */
+.sunset {
+  --background: 20 30% 10%;
+  --foreground: 30 20% 95%;
+  --card: 20 25% 12%;
+  --card-foreground: 30 20% 95%;
+  --popover: 20 25% 14%;
+  --popover-foreground: 30 20% 95%;
+  --primary: 20 70% 50%;
+  --primary-foreground: 20 10% 10%;
+  --secondary: 20 20% 20%;
+  --secondary-foreground: 30 20% 95%;
+  --muted: 20 15% 30%;
+  --muted-foreground: 20 15% 70%;
+  --accent: 40 60% 50%;
+  --accent-foreground: 20 10% 10%;
+  --destructive: 0 70% 50%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 20 20% 22%;
+  --input: 20 20% 20%;
+  --ring: 20 70% 50%;
+}
+
+/* Midnight Theme */
+.midnight {
+  --background: 240 20% 4%;
+  --foreground: 240 5% 96%;
+  --card: 240 20% 6%;
+  --card-foreground: 240 5% 96%;
+  --popover: 240 20% 8%;
+  --popover-foreground: 240 5% 96%;
+  --primary: 240 40% 60%;
+  --primary-foreground: 240 10% 10%;
+  --secondary: 240 15% 12%;
+  --secondary-foreground: 240 5% 96%;
+  --muted: 240 10% 20%;
+  --muted-foreground: 240 5% 60%;
+  --accent: 260 50% 50%;
+  --accent-foreground: 240 5% 96%;
+  --destructive: 0 60% 40%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 15% 14%;
+  --input: 240 15% 12%;
+  --ring: 240 40% 60%;
+}
+
+/* Rose Theme */
+.rose {
+  --background: 350 20% 98%;
+  --foreground: 350 40% 10%;
+  --card: 350 15% 96%;
+  --card-foreground: 350 40% 10%;
+  --popover: 350 15% 94%;
+  --popover-foreground: 350 40% 10%;
+  --primary: 350 60% 50%;
+  --primary-foreground: 350 10% 98%;
+  --secondary: 350 10% 90%;
+  --secondary-foreground: 350 40% 20%;
+  --muted: 350 5% 85%;
+  --muted-foreground: 350 20% 40%;
+  --accent: 340 50% 55%;
+  --accent-foreground: 350 10% 98%;
+  --destructive: 0 70% 50%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 350 10% 88%;
+  --input: 350 10% 90%;
+  --ring: 350 60% 50%;
+}
+
+/* Monochrome Theme */
+.monochrome {
+  --background: 0 0% 5%;
+  --foreground: 0 0% 95%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 95%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 0 0% 95%;
+  --primary-foreground: 0 0% 5%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 95%;
+  --muted: 0 0% 20%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 25%;
+  --accent-foreground: 0 0% 95%;
+  --destructive: 0 0% 50%;
+  --destructive-foreground: 0 0% 95%;
+  --border: 0 0% 18%;
+  --input: 0 0% 15%;
+  --ring: 0 0% 60%;
+}
+
+/* Apply transitions to all themed elements */
+* {
+  transition: var(--transition-theme);
+}

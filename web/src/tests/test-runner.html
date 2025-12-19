@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cora RAG Integration Tests</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .test-section h3 {
+            background: #f8f9fa;
+            margin: 0;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            color: #495057;
+        }
+        .test-content {
+            padding: 20px;
+        }
+        .test-case {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .test-case:last-child {
+            border-bottom: none;
+        }
+        .test-status {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .status-pending { background: #6c757d; color: white; }
+        .status-running { background: #ffc107; color: white; animation: pulse 1s infinite; }
+        .status-pass { background: #28a745; color: white; }
+        .status-fail { background: #dc3545; color: white; }
+        .test-name {
+            flex: 1;
+            font-weight: 500;
+        }
+        .test-duration {
+            color: #6c757d;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .btn.secondary {
+            background: #6c757d;
+        }
+        .btn.success {
+            background: #28a745;
+        }
+        .btn.danger {
+            background: #dc3545;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .log-container {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            height: 20px;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .error-details {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 Cora RAG Integration Tests</h1>
+        <p>Comprehensive Quality Assurance Validation Suite</p>
+        <p style="opacity: 0.9; font-size: 14px;">Testing document upload, indexing, semantic search, and chat integration</p>
+    </div>
+
+    <div class="stats" id="stats">
+        <div class="stat-card">
+            <div class="stat-value" id="total-tests">0</div>
+            <div class="stat-label">Total Tests</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="passed-tests" style="color: #28a745;">0</div>
+            <div class="stat-label">Passed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="failed-tests" style="color: #dc3545;">0</div>
+            <div class="stat-label">Failed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="execution-time">0s</div>
+            <div class="stat-label">Execution Time</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="run-all-btn">Run All Tests</button>
+        <button class="btn secondary" id="run-basic-btn">Run Basic Tests</button>
+        <button class="btn secondary" id="run-performance-btn">Run Performance Tests</button>
+        <button class="btn danger" id="clear-data-btn">Clear Test Data</button>
+        <button class="btn success" id="export-results-btn">Export Results</button>
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%">0%</div>
+    </div>
+
+    <div class="test-section">
+        <h3>📤 Document Upload & Storage</h3>
+        <div class="test-content" id="upload-tests">
+            <!-- Test cases will be populated here -->
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Embedding & Indexing</h3>
+        <div class="test-content" id="indexing-tests">
+            <!-- Test cases will be populated here -->
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 Semantic Search</h3>
+        <div class="test-content" id="search-tests">
+            <!-- Test cases will be populated here -->
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>💬 Chat Integration</h3>
+        <div class="test-content" id="chat-tests">
+            <!-- Test cases will be populated here -->
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>⚡ Performance Tests</h3>
+        <div class="test-content" id="performance-tests">
+            <!-- Test cases will be populated here -->
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🐛 Error Handling</h3>
+        <div class="test-content" id="error-tests">
+            <!-- Test cases will be populated here -->
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Test Execution Log</h3>
+        <div class="test-content">
+            <div class="log-container" id="test-log">
+Ready to run tests...
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import dbService from '../lib/database/db-service.js';
+        import ragService from '../lib/embeddings/rag-service.js';
+        import embeddingService from '../lib/embeddings/embedding-service.js';
+
+        class RAGTestRunner {
+            constructor() {
+                this.tests = [];
+                this.results = [];
+                this.startTime = null;
+                this.isRunning = false;
+                this.testDocuments = [];
+                
+                this.initializeTests();
+                this.setupEventListeners();
+                this.renderTests();
+            }
+
+            initializeTests() {
+                this.tests = [
+                    // Document Upload Tests
+                    {
+                        category: 'upload',
+                        name: 'Upload Simple Text Document',
+                        test: () => this.testSimpleUpload(),
+                        critical: true
+                    },
+                    {
+                        category: 'upload',
+                        name: 'Upload Large Document',
+                        test: () => this.testLargeUpload(),
+                        critical: false
+                    },
+                    {
+                        category: 'upload',
+                        name: 'Validate File Types',
+                        test: () => this.testFileValidation(),
+                        critical: true
+                    },
+                    
+                    // Indexing Tests
+                    {
+                        category: 'indexing',
+                        name: 'Initialize RAG Service',
+                        test: () => this.testRAGInitialization(),
+                        critical: true
+                    },
+                    {
+                        category: 'indexing',
+                        name: 'Generate Embeddings',
+                        test: () => this.testEmbeddingGeneration(),
+                        critical: true
+                    },
+                    {
+                        category: 'indexing',
+                        name: 'Document Chunking',
+                        test: () => this.testDocumentChunking(),
+                        critical: false
+                    },
+                    
+                    // Search Tests
+                    {
+                        category: 'search',
+                        name: 'Basic Semantic Search',
+                        test: () => this.testBasicSearch(),
+                        critical: true
+                    },
+                    {
+                        category: 'search',
+                        name: 'Search Result Ranking',
+                        test: () => this.testSearchRanking(),
+                        critical: true
+                    },
+                    {
+                        category: 'search',
+                        name: 'Context Generation',
+                        test: () => this.testContextGeneration(),
+                        critical: true
+                    },
+                    
+                    // Chat Integration Tests
+                    {
+                        category: 'chat',
+                        name: 'RAG Context Injection',
+                        test: () => this.testRAGContextInjection(),
+                        critical: true
+                    },
+                    {
+                        category: 'chat',
+                        name: 'Fallback Without RAG',
+                        test: () => this.testChatFallback(),
+                        critical: false
+                    },
+                    
+                    // Performance Tests
+                    {
+                        category: 'performance',
+                        name: 'Upload Performance',
+                        test: () => this.testUploadPerformance(),
+                        critical: false
+                    },
+                    {
+                        category: 'performance',
+                        name: 'Search Performance',
+                        test: () => this.testSearchPerformance(),
+                        critical: false
+                    },
+                    
+                    // Error Handling Tests
+                    {
+                        category: 'error',
+                        name: 'Handle Invalid Documents',
+                        test: () => this.testInvalidDocuments(),
+                        critical: true
+                    },
+                    {
+                        category: 'error',
+                        name: 'Handle Search Errors',
+                        test: () => this.testSearchErrors(),
+                        critical: true
+                    }
+                ];
+            }
+
+            setupEventListeners() {
+                document.getElementById('run-all-btn').onclick = () => this.runAllTests();
+                document.getElementById('run-basic-btn').onclick = () => this.runBasicTests();
+                document.getElementById('run-performance-btn').onclick = () => this.runPerformanceTests();
+                document.getElementById('clear-data-btn').onclick = () => this.clearTestData();
+                document.getElementById('export-results-btn').onclick = () => this.exportResults();
+            }
+
+            renderTests() {
+                const categories = {
+                    'upload': 'upload-tests',
+                    'indexing': 'indexing-tests',
+                    'search': 'search-tests',
+                    'chat': 'chat-tests',
+                    'performance': 'performance-tests',
+                    'error': 'error-tests'
+                };
+
+                Object.entries(categories).forEach(([category, elementId]) => {
+                    const container = document.getElementById(elementId);
+                    const categoryTests = this.tests.filter(test => test.category === category);
+                    
+                    container.innerHTML = categoryTests.map((test, index) => `
+                        <div class="test-case" data-test-id="${test.category}-${index}">
+                            <div class="test-status status-pending" id="status-${test.category}-${index}">⏳</div>
+                            <div class="test-name">${test.name}</div>
+                            <div class="test-duration" id="duration-${test.category}-${index}"></div>
+                        </div>
+                    `).join('');
+                });
+
+                this.updateStats();
+            }
+
+            updateStats() {
+                document.getElementById('total-tests').textContent = this.tests.length;
+                document.getElementById('passed-tests').textContent = this.results.filter(r => r.passed).length;
+                document.getElementById('failed-tests').textContent = this.results.filter(r => !r.passed).length;
+                
+                if (this.startTime) {
+                    const elapsed = (Date.now() - this.startTime) / 1000;
+                    document.getElementById('execution-time').textContent = elapsed.toFixed(1) + 's';
+                }
+            }
+
+            log(message) {
+                const logElement = document.getElementById('test-log');
+                const timestamp = new Date().toLocaleTimeString();
+                logElement.textContent += `\n[${timestamp}] ${message}`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+
+            async runAllTests() {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.startTime = Date.now();
+                this.results = [];
+                this.log('🚀 Starting comprehensive RAG test suite...');
+
+                try {
+                    for (let i = 0; i < this.tests.length; i++) {
+                        await this.runSingleTest(this.tests[i], i);
+                        this.updateProgress((i + 1) / this.tests.length * 100);
+                    }
+                    
+                    this.log('✅ All tests completed!');
+                    this.generateSummary();
+                } catch (error) {
+                    this.log(`❌ Test suite failed: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            async runBasicTests() {
+                const basicTests = this.tests.filter(test => test.critical);
+                await this.runTestSubset(basicTests, '🔥 Running critical tests...');
+            }
+
+            async runPerformanceTests() {
+                const perfTests = this.tests.filter(test => test.category === 'performance');
+                await this.runTestSubset(perfTests, '⚡ Running performance tests...');
+            }
+
+            async runTestSubset(tests, startMessage) {
+                if (this.isRunning) return;
+                
+                this.isRunning = true;
+                this.startTime = Date.now();
+                this.results = [];
+                this.log(startMessage);
+
+                try {
+                    for (let i = 0; i < tests.length; i++) {
+                        const testIndex = this.tests.indexOf(tests[i]);
+                        await this.runSingleTest(tests[i], testIndex);
+                        this.updateProgress((i + 1) / tests.length * 100);
+                    }
+                    
+                    this.log('✅ Test subset completed!');
+                    this.generateSummary();
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            async runSingleTest(test, index) {
+                const testId = `${test.category}-${index}`;
+                const statusElement = document.getElementById(`status-${testId}`);
+                const durationElement = document.getElementById(`duration-${testId}`);
+                
+                statusElement.className = 'test-status status-running';
+                statusElement.textContent = '🔄';
+                
+                const start = Date.now();
+                this.log(`Running: ${test.name}`);
+                
+                try {
+                    await test.test();
+                    
+                    const duration = Date.now() - start;
+                    statusElement.className = 'test-status status-pass';
+                    statusElement.textContent = '✓';
+                    durationElement.textContent = `${duration}ms`;
+                    
+                    this.results.push({ 
+                        name: test.name, 
+                        passed: true, 
+                        duration,
+                        category: test.category
+                    });
+                    
+                    this.log(`✅ ${test.name} - PASSED (${duration}ms)`);
+                } catch (error) {
+                    const duration = Date.now() - start;
+                    statusElement.className = 'test-status status-fail';
+                    statusElement.textContent = '✗';
+                    durationElement.textContent = `${duration}ms`;
+                    
+                    this.results.push({ 
+                        name: test.name, 
+                        passed: false, 
+                        duration,
+                        error: error.message,
+                        category: test.category
+                    });
+                    
+                    this.log(`❌ ${test.name} - FAILED (${duration}ms): ${error.message}`);
+                }
+                
+                this.updateStats();
+            }
+
+            updateProgress(percentage) {
+                const progressFill = document.getElementById('progress-fill');
+                progressFill.style.width = `${percentage}%`;
+                progressFill.textContent = `${Math.round(percentage)}%`;
+            }
+
+            generateSummary() {
+                const passed = this.results.filter(r => r.passed).length;
+                const failed = this.results.filter(r => !r.passed).length;
+                const total = this.results.length;
+                const successRate = (passed / total * 100).toFixed(1);
+                
+                this.log(`\n📊 TEST SUMMARY:`);
+                this.log(`Total Tests: ${total}`);
+                this.log(`Passed: ${passed}`);
+                this.log(`Failed: ${failed}`);
+                this.log(`Success Rate: ${successRate}%`);
+                
+                if (failed > 0) {
+                    this.log(`\n❌ Failed Tests:`);
+                    this.results.filter(r => !r.passed).forEach(result => {
+                        this.log(`  - ${result.name}: ${result.error}`);
+                    });
+                }
+            }
+
+            // Test implementations
+            async testSimpleUpload() {
+                const testDoc = {
+                    title: 'Test Document',
+                    content: 'This is a test document for RAG validation.',
+                    contentType: 'text/plain',
+                    size: 44
+                };
+
+                const doc = await dbService.createDocument({
+                    ...testDoc,
+                    status: 'pending',
+                    indexed: false,
+                    metadata: { uploadedAt: new Date() }
+                });
+
+                this.testDocuments.push(doc);
+                
+                if (!doc._id || doc.title !== testDoc.title) {
+                    throw new Error('Document upload failed');
+                }
+            }
+
+            async testLargeUpload() {
+                const largeContent = 'Lorem ipsum dolor sit amet. '.repeat(1000);
+                const testDoc = {
+                    title: 'Large Test Document',
+                    content: largeContent,
+                    contentType: 'text/plain',
+                    size: largeContent.length
+                };
+
+                const doc = await dbService.createDocument({
+                    ...testDoc,
+                    status: 'pending',
+                    indexed: false,
+                    metadata: { uploadedAt: new Date() }
+                });
+
+                this.testDocuments.push(doc);
+                
+                if (!doc._id || doc.size !== largeContent.length) {
+                    throw new Error('Large document upload failed');
+                }
+            }
+
+            async testFileValidation() {
+                try {
+                    await dbService.createDocument({
+                        title: null,
+                        content: '',
+                        contentType: 'invalid/type',
+                        size: 0
+                    });
+                    throw new Error('Should have rejected invalid document');
+                } catch (error) {
+                    // Expected to fail
+                    if (error.message.includes('Should have rejected')) {
+                        throw error;
+                    }
+                }
+            }
+
+            async testRAGInitialization() {
+                if (!ragService.initialized) {
+                    await ragService.initialize();
+                }
+                
+                if (!ragService.initialized) {
+                    throw new Error('RAG service failed to initialize');
+                }
+            }
+
+            async testEmbeddingGeneration() {
+                if (this.testDocuments.length === 0) {
+                    await this.testSimpleUpload();
+                }
+                
+                const doc = this.testDocuments[0];
+                await ragService.indexDocument(doc);
+                
+                const updatedDoc = await dbService.getDocument(doc._id);
+                if (!updatedDoc.indexed || updatedDoc.status !== 'completed') {
+                    throw new Error('Document indexing failed');
+                }
+                
+                const embeddings = await dbService.findEmbeddings({ documentId: doc._id });
+                if (embeddings.length === 0) {
+                    throw new Error('No embeddings generated');
+                }
+                
+                if (embeddings[0].vector.length !== 384) {
+                    throw new Error('Invalid embedding dimensions');
+                }
+            }
+
+            async testDocumentChunking() {
+                const largeDoc = this.testDocuments.find(doc => doc.size > 1000);
+                if (!largeDoc) {
+                    await this.testLargeUpload();
+                    return this.testDocumentChunking();
+                }
+                
+                await ragService.indexDocument(largeDoc);
+                const embeddings = await dbService.findEmbeddings({ documentId: largeDoc._id });
+                
+                if (embeddings.length < 2) {
+                    throw new Error('Large document was not properly chunked');
+                }
+            }
+
+            async testBasicSearch() {
+                // Ensure we have indexed documents
+                if (this.testDocuments.length === 0 || !this.testDocuments[0].indexed) {
+                    await this.testEmbeddingGeneration();
+                }
+                
+                const results = await ragService.search('test document', { limit: 5 });
+                
+                if (!Array.isArray(results) || results.length === 0) {
+                    throw new Error('Search returned no results');
+                }
+                
+                if (!results[0].score || !results[0].text || !results[0].document) {
+                    throw new Error('Search results have invalid structure');
+                }
+            }
+
+            async testSearchRanking() {
+                await this.testBasicSearch();
+                
+                const results = await ragService.search('test', { limit: 10 });
+                
+                // Check that results are sorted by score
+                for (let i = 0; i < results.length - 1; i++) {
+                    if (results[i].score < results[i + 1].score) {
+                        throw new Error('Search results not properly ranked by relevance');
+                    }
+                }
+            }
+
+            async testContextGeneration() {
+                await this.testBasicSearch();
+                
+                const context = await ragService.getSearchContext('test document', { limit: 3 });
+                
+                if (typeof context !== 'string' || context.length === 0) {
+                    throw new Error('Context generation failed');
+                }
+                
+                if (!context.includes('[1]') || !context.includes('% match')) {
+                    throw new Error('Context format invalid - missing citations');
+                }
+            }
+
+            async testRAGContextInjection() {
+                // This would test LLM integration in a real environment
+                // For now, we simulate the process
+                await this.testContextGeneration();
+                
+                const query = 'What is in the test document?';
+                const context = await ragService.getSearchContext(query);
+                
+                if (context.length === 0) {
+                    throw new Error('RAG context not generated for chat');
+                }
+            }
+
+            async testChatFallback() {
+                // Test that system works when RAG is disabled
+                const originalInitialized = ragService.initialized;
+                ragService.initialized = false;
+                
+                try {
+                    const context = await ragService.getSearchContext('test query');
+                    if (context !== '') {
+                        throw new Error('Should return empty context when RAG disabled');
+                    }
+                } finally {
+                    ragService.initialized = originalInitialized;
+                }
+            }
+
+            async testUploadPerformance() {
+                const start = Date.now();
+                
+                const testDoc = {
+                    title: 'Performance Test Document',
+                    content: 'Performance test content. '.repeat(100),
+                    contentType: 'text/plain',
+                    size: 2500
+                };
+
+                const doc = await dbService.createDocument({
+                    ...testDoc,
+                    status: 'pending',
+                    indexed: false,
+                    metadata: { uploadedAt: new Date() }
+                });
+
+                this.testDocuments.push(doc);
+                
+                const duration = Date.now() - start;
+                if (duration > 1000) {
+                    throw new Error(`Upload too slow: ${duration}ms (expected < 1000ms)`);
+                }
+            }
+
+            async testSearchPerformance() {
+                await this.testBasicSearch();
+                
+                const start = Date.now();
+                await ragService.search('performance test', { limit: 10 });
+                const duration = Date.now() - start;
+                
+                if (duration > 2000) {
+                    throw new Error(`Search too slow: ${duration}ms (expected < 2000ms)`);
+                }
+            }
+
+            async testInvalidDocuments() {
+                const invalidCases = [
+                    { title: '', content: 'content', contentType: 'text/plain' },
+                    { title: 'title', content: '', contentType: 'text/plain' },
+                    { title: null, content: 'content', contentType: 'text/plain' }
+                ];
+                
+                for (const invalidDoc of invalidCases) {
+                    try {
+                        await dbService.createDocument(invalidDoc);
+                        throw new Error(`Should have rejected invalid document: ${JSON.stringify(invalidDoc)}`);
+                    } catch (error) {
+                        if (error.message.includes('Should have rejected')) {
+                            throw error;
+                        }
+                        // Expected validation error
+                    }
+                }
+            }
+
+            async testSearchErrors() {
+                try {
+                    await ragService.search('', { limit: 10 });
+                    // Empty query should either return empty results or handle gracefully
+                } catch (error) {
+                    // Should not throw unhandled errors
+                    throw new Error(`Search error handling failed: ${error.message}`);
+                }
+            }
+
+            async clearTestData() {
+                this.log('🧹 Clearing test data...');
+                
+                for (const doc of this.testDocuments) {
+                    try {
+                        await dbService.deleteDocument(doc._id);
+                    } catch (error) {
+                        console.warn(`Failed to delete test document ${doc._id}:`, error);
+                    }
+                }
+                
+                this.testDocuments = [];
+                this.results = [];
+                this.renderTests();
+                this.log('✅ Test data cleared');
+            }
+
+            exportResults() {
+                const report = {
+                    timestamp: new Date().toISOString(),
+                    summary: {
+                        total: this.results.length,
+                        passed: this.results.filter(r => r.passed).length,
+                        failed: this.results.filter(r => !r.passed).length,
+                        successRate: (this.results.filter(r => r.passed).length / this.results.length * 100).toFixed(1) + '%',
+                        executionTime: this.startTime ? (Date.now() - this.startTime) / 1000 : 0
+                    },
+                    results: this.results,
+                    userAgent: navigator.userAgent,
+                    browserInfo: {
+                        webgpu: !!navigator.gpu,
+                        indexedDB: !!window.indexedDB,
+                        webWorkers: !!window.Worker
+                    }
+                };
+                
+                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `rag-test-results-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                this.log('📄 Test results exported');
+            }
+        }
+
+        // Initialize test runner when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.testRunner = new RAGTestRunner();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test</title>
+</head>
+<body>
+  <script>
+    // Test the exact line causing issues
+    try {
+      var testFn = (globalThis.performance && globalThis.performance.now) ? globalThis.performance.now.bind(globalThis.performance) : function() { return Date.now(); };
+      console.log("Success! Function created:", typeof testFn);
+    } catch (e) {
+      console.error("Error:", e);
+    }
+  </script>
+</body>
+</html>

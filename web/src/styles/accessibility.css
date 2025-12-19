@@ -1,0 +1,71 @@
+/* Accessibility Styles */
+
+/* Ensure minimum touch target size for mobile */
+@media (max-width: 768px) {
+  button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  a[role="button"],
+  [role="button"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* High contrast mode adjustments */
+@media (prefers-contrast: high) {
+  .text-muted-foreground {
+    color: #666 !important;
+  }
+
+  .bg-muted {
+    background-color: #e5e5e5 !important;
+  }
+
+  .dark .text-muted-foreground {
+    color: #999 !important;
+  }
+
+  .dark .bg-muted {
+    background-color: #333 !important;
+  }
+}
+
+/* Focus visible styles */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Screen reader only class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to content link - visible when focused */
+.sr-only:focus {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 50;
+  padding: 0.5rem 1rem;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 0.5rem;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+  width: auto;
+  height: auto;
+  clip: auto;
+  white-space: normal;
+}

@@ -1,0 +1,18 @@
+WebGPU WebLLM Test Document
+
+This is a comprehensive test document for verifying the RAG (Retrieval Augmented Generation) system functionality.
+
+WebGPU enables high-performance graphics and compute operations directly in web browsers. It provides modern GPU features including compute shaders, which are essential for running large language models efficiently.
+
+WebLLM is a framework that leverages WebGPU to run language models entirely in the browser without requiring any server-side infrastructure. This enables private, secure, and fast AI interactions.
+
+Key Features:
+- Browser-based AI: All processing happens locally
+- Privacy-first: No data leaves your device
+- WebGPU acceleration: Leverages modern GPU capabilities
+- Zero-install: Works directly in compatible browsers
+
+Technical Details:
+The system uses Apache TVM to compile models for WebGPU execution. Models are loaded as WebAssembly modules with GPU compute kernels. The architecture supports streaming responses and function calling.
+
+This test document contains various technical terms and concepts that should be searchable through the RAG system, including WebGPU, WebLLM, TVM, browser-based AI, privacy, and GPU acceleration.
