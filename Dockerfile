@@ -62,8 +62,8 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     # Content Security Policy
-    # Allows: self, CDN sources for LLM runtime, HuggingFace for models, inline styles for Tailwind
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' https://esm.run https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.huggingface.co https://huggingface.co https://esm.run https://cdn.jsdelivr.net https://unpkg.com https://en.wikipedia.org https://api.duckduckgo.com wss: ws:; img-src 'self' data: blob: https:; font-src 'self' data:; worker-src 'self' blob:;" always;
+    # Allows: self, CDN sources for LLM runtime, HuggingFace for models, GitHub for WebLLM, Google Fonts
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://esm.run https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://*.huggingface.co https://huggingface.co https://*.xethub.hf.co https://raw.githubusercontent.com https://esm.run https://cdn.jsdelivr.net https://unpkg.com https://en.wikipedia.org https://api.duckduckgo.com wss: ws:; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; worker-src 'self' blob:;" always;
 
     # Proxy to txtai service
     location /api/txtai/ {

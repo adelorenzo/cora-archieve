@@ -7,7 +7,7 @@ services:
     environment:
       - NODE_ENV=production
       - SEARXNG_URL=http://searxng:8080
-      - TXTAI_URL=http://txtai:8001
+      - TXTAI_URL=http://txtai-cora:8001
     env_file:
       - .env
     healthcheck:
@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
     depends_on:
       - searxng
-      - txtai
+      - txtai-cora
 
   # Cora AI - Landing Page
   landing:
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
 
   # txtai - RAG Service (internal only)
-  txtai:
+  txtai-cora:
     image: ghcr.io/adelorenzo/cora-ai-txtai:latest
     environment:
       - TXTAI_API_KEY=${TXTAI_API_KEY:-}
